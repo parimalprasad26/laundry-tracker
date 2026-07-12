@@ -16,12 +16,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { CheckCircle2, Circle, Minus, Plus, Loader2, Shirt, MoreVertical, Trash2, AlertTriangle, PackageX } from 'lucide-react'
 import type { BatchItemWithClosetItem, BatchStatus } from '@/types'
 import { cn } from '@/lib/utils'
-
-const TYPE_LABELS: Record<string, string> = {
-  shirt: 'Shirt', pants: 'Pants', dress: 'Dress', jacket: 'Jacket',
-  shorts: 'Shorts', socks: 'Socks', underwear: 'Underwear',
-  sweater: 'Sweater', suit: 'Suit', other: 'Other',
-}
+import { formatItemType } from '@/lib/item-type'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
@@ -134,7 +129,7 @@ export function BatchItemCard({ item, batchStatus }: Props) {
               {ci.name}
             </p>
             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-              <Badge variant="outline" className="text-xs py-0">{TYPE_LABELS[ci.type]}</Badge>
+              <Badge variant="outline" className="text-xs py-0">{formatItemType(ci.type, ci.custom_type)}</Badge>
               {ci.color && <span className="text-xs text-muted-foreground">{ci.color}</span>}
               {item.damaged_qty > 0 && (
                 <Badge variant="outline" className="text-[10px] py-0 border-amber-300 text-amber-600 dark:text-amber-400 gap-1">

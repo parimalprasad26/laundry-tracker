@@ -39,7 +39,7 @@ export function ClosetUploadForm() {
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ClosetItemFormValues>({
     resolver: zodResolver(closetItemSchema) as Resolver<ClosetItemFormValues>,
-    defaultValues: { type: 'other' },
+    defaultValues: { type: 'shirt', custom_type: null },
   })
 
   async function handleFile(file: File) {
@@ -159,8 +159,11 @@ export function ClosetUploadForm() {
         <div className="space-y-1.5">
           <Label>Type</Label>
           <Select
-            value={watch('type') ?? 'other'}
-            onValueChange={(v: string | null) => setValue('type', (v ?? 'other') as ClosetItemFormValues['type'])}
+            value={watch('type') ?? 'shirt'}
+            onValueChange={(v: string | null) => {
+              setValue('type', (v ?? 'shirt') as ClosetItemFormValues['type'])
+              if (v !== 'other') setValue('custom_type', null)
+            }}
           >
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -168,6 +171,19 @@ export function ClosetUploadForm() {
             </SelectContent>
           </Select>
         </div>
+
+        {watch('type') === 'other' && (
+          <div className="space-y-1.5">
+            <Label htmlFor="custom_type">Custom name <span className="text-destructive">*</span></Label>
+            <Input
+              id="custom_type"
+              placeholder="e.g. Kurta, Blazer, Saree"
+              {...register('custom_type')}
+              onChange={e => setValue('custom_type', e.target.value.toLowerCase().trim() || null)}
+            />
+            {errors.custom_type && <p className="text-xs text-destructive">{errors.custom_type.message}</p>}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">

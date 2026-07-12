@@ -11,6 +11,7 @@ import { VendorTurnaroundStats } from '@/components/vendors/VendorTurnaroundStat
 import { Separator } from '@/components/ui/separator'
 import { ChevronLeft } from 'lucide-react'
 import { BatchRepository } from '@/repositories/BatchRepository'
+import { ClosetRepository } from '@/repositories/ClosetRepository'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -29,11 +30,12 @@ export default async function VendorDetailPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [vendor, prices, notedBatches, turnaround] = await Promise.all([
+  const [vendor, prices, notedBatches, turnaround, customTypes] = await Promise.all([
     new VendorService(supabase).getById(id),
     new VendorPriceService(supabase).getByVendor(id),
     new BatchService(supabase).getWithNotesByVendor(id, user.id),
     new BatchRepository(supabase).getTurnaroundStats(user.id, id),
+    new ClosetRepository(supabase).getUserCustomTypes(user.id),
   ])
 
   if (!vendor || vendor.user_id !== user.id) notFound()
@@ -79,7 +81,7 @@ export default async function VendorDetailPage({ params }: Props) {
             Prices are automatically applied when you add items to a batch with this vendor.
           </p>
         </div>
-        <VendorPriceForm vendorId={vendor.id} initialPrices={prices} />
+        <VendorPriceForm vendorId={vendor.id} initialPrices={prices} customTypes={customTypes} />
       </div>
 
       {notedBatches.length > 0 && (

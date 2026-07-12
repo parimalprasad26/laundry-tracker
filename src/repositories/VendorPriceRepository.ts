@@ -1,5 +1,8 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { priceKey } from '@/lib/item-type'
 import type { VendorItemPrice, ItemType } from '@/types'
+
+export type VendorPriceEntry = { item_type: ItemType; custom_type?: string | null; unit_price: number }
 
 export class VendorPriceRepository {
   constructor(private supabase: SupabaseClient) {}
@@ -15,16 +18,12 @@ export class VendorPriceRepository {
     return data ?? []
   }
 
-  async getPriceMap(vendorId: string): Promise<Map<ItemType, number>> {
+  async getPriceMap(vendorId: string): Promise<Map<string, number>> {
     const prices = await this.findByVendor(vendorId)
-    return new Map(prices.map(p => [p.item_type, Number(p.unit_price)]))
+    return new Map(prices.map(p => [priceKey(p.item_type, p.custom_type), Number(p.unit_price)]))
   }
 
-  async replaceAll(
-    vendorId: string,
-    userId: string,
-    prices: Array<{ item_type: ItemType; unit_price: number }>
-  ): Promise<void> {
+  async replaceAll(vendorId: string, userId: string, prices: VendorPriceEntry[]): Promise<void> {
     const { error: delErr } = await this.supabase
       .from('vendor_item_prices')
       .delete()
@@ -39,6 +38,7 @@ export class VendorPriceRepository {
         vendor_id: vendorId,
         user_id: userId,
         item_type: p.item_type,
+        custom_type: p.custom_type ?? null,
         unit_price: p.unit_price,
         created_by: userId,
         updated_by: userId,

@@ -6,12 +6,7 @@ import { publicImageUrl } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ClosetItemActions } from '@/components/closet/ClosetItemActions'
 import { ChevronLeft, Shirt } from 'lucide-react'
-
-const TYPE_LABELS: Record<string, string> = {
-  shirt: 'Shirt', pants: 'Pants', dress: 'Dress', jacket: 'Jacket',
-  shorts: 'Shorts', socks: 'Socks', underwear: 'Underwear',
-  sweater: 'Sweater', suit: 'Suit', other: 'Other',
-}
+import { formatItemType } from '@/lib/item-type'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -66,7 +61,7 @@ export default async function ClosetItemPage({ params }: Props) {
 
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">{TYPE_LABELS[item.type] ?? item.type}</Badge>
+          <Badge variant="outline">{formatItemType(item.type, item.custom_type)}</Badge>
           {item.color && <Badge variant="outline">{item.color}</Badge>}
           {item.brand && <Badge variant="outline">{item.brand}</Badge>}
         </div>

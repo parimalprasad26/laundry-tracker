@@ -3,12 +3,7 @@ import { publicImageUrl } from '@/lib/utils'
 import { Shirt } from 'lucide-react'
 import type { ClosetItem } from '@/types'
 import { cn } from '@/lib/utils'
-
-const TYPE_LABELS: Record<string, string> = {
-  shirt: 'Shirt', pants: 'Pants', dress: 'Dress', jacket: 'Jacket',
-  shorts: 'Shorts', socks: 'Socks', underwear: 'Underwear',
-  sweater: 'Sweater', suit: 'Suit', other: 'Other',
-}
+import { formatItemType } from '@/lib/item-type'
 
 interface Props {
   item: ClosetItem
@@ -49,7 +44,7 @@ export function ClosetItemCard({ item, washCount, supabaseUrl, className }: Prop
         <div className="p-3">
           <p className="font-semibold text-sm truncate">{item.name}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {TYPE_LABELS[item.type]}{item.color ? ` · ${item.color}` : ''}
+            {formatItemType(item.type, item.custom_type)}{item.color ? ` · ${item.color}` : ''}
           </p>
         </div>
       </div>

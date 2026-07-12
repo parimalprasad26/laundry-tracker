@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
-import type { VendorItemPrice, ItemType } from '@/types'
+import { VendorPriceRepository, type VendorPriceEntry } from '@/repositories/VendorPriceRepository'
+import type { VendorItemPrice } from '@/types'
 
 export class VendorPriceService {
   private repo: VendorPriceRepository
@@ -13,15 +13,11 @@ export class VendorPriceService {
     return this.repo.findByVendor(vendorId)
   }
 
-  async getPriceMap(vendorId: string): Promise<Map<ItemType, number>> {
+  async getPriceMap(vendorId: string): Promise<Map<string, number>> {
     return this.repo.getPriceMap(vendorId)
   }
 
-  async save(
-    vendorId: string,
-    userId: string,
-    prices: Array<{ item_type: ItemType; unit_price: number }>
-  ): Promise<void> {
+  async save(vendorId: string, userId: string, prices: VendorPriceEntry[]): Promise<void> {
     await this.repo.replaceAll(vendorId, userId, prices)
   }
 }
