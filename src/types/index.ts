@@ -72,6 +72,7 @@ export interface VendorItemPrice {
   vendor_id: string
   user_id: string
   item_type: ItemType
+  custom_type: string | null
   unit_price: number
   created_at: string
   updated_at: string
@@ -85,6 +86,7 @@ export interface ClosetItem {
   user_id: string
   name: string
   type: ItemType
+  custom_type: string | null
   color: string | null
   brand: string | null
   notes: string | null

@@ -5,7 +5,8 @@ import { handleActionError } from '@/lib/handle-error'
 import { updateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { VendorPriceService } from '@/services/VendorPriceService'
-import type { ItemType, VendorItemPrice, ActionResult } from '@/types'
+import type { VendorItemPrice, ActionResult } from '@/types'
+import type { VendorPriceEntry } from '@/repositories/VendorPriceRepository'
 
 async function getAuthedService() {
   const supabase = await createClient()
@@ -26,7 +27,7 @@ export async function getVendorPrices(vendorId: string): Promise<ActionResult<Ve
 
 export async function saveVendorPrices(
   vendorId: string,
-  prices: Array<{ item_type: ItemType; unit_price: number }>
+  prices: VendorPriceEntry[]
 ): Promise<ActionResult> {
   try {
     const { service, userId } = await getAuthedService()

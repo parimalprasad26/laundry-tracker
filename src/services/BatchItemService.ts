@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
 import { ClosetRepository } from '@/repositories/ClosetRepository'
+import { priceKey } from '@/lib/item-type'
 import type { BatchItem, BatchItemWithClosetItem, ItemType } from '@/types'
 
 export class BatchItemService {
@@ -24,7 +25,7 @@ export class BatchItemService {
     batchId: string,
     userId: string,
     closetItemIds: string[],
-    priceMap?: Map<ItemType, number>
+    priceMap?: Map<string, number>
   ): Promise<BatchItem[]> {
     if (!closetItemIds.length) return []
 
@@ -32,11 +33,14 @@ export class BatchItemService {
 
     if (priceMap && priceMap.size > 0) {
       const closetItems = await this.closetRepo.findManyByIds(closetItemIds)
-      const typeById = new Map(closetItems.map(ci => [ci.id, ci.type]))
-      items = closetItemIds.map(id => ({
-        closet_item_id: id,
-        unit_price: priceMap.get(typeById.get(id) as ItemType) ?? null,
-      }))
+      const byId = new Map(closetItems.map(ci => [ci.id, ci]))
+      items = closetItemIds.map(id => {
+        const ci = byId.get(id)
+        return {
+          closet_item_id: id,
+          unit_price: ci ? (priceMap.get(priceKey(ci.type, ci.custom_type)) ?? null) : null,
+        }
+      })
     } else {
       items = closetItemIds.map(id => ({ closet_item_id: id, unit_price: null }))
     }
@@ -48,11 +52,17 @@ export class BatchItemService {
     return this.repo.updateUnitPrice(id, userId, unitPrice)
   }
 
-  async applyVendorPrices(batchId: string, userId: string, priceMap: Map<ItemType, number>): Promise<number> {
+  async applyVendorPrices(batchId: string, userId: string, priceMap: Map<string, number>): Promise<number> {
     const items = await this.repo.findByBatch(batchId)
-    const toUpdate = items.filter(i => i.unit_price == null && priceMap.has(i.closet_item.type))
+    const toUpdate = items.filter(i => {
+      const key = priceKey(i.closet_item.type, i.closet_item.custom_type)
+      return i.unit_price == null && priceMap.has(key)
+    })
     await Promise.all(
-      toUpdate.map(i => this.repo.updateUnitPrice(i.id, userId, priceMap.get(i.closet_item.type)!))
+      toUpdate.map(i => {
+        const key = priceKey(i.closet_item.type, i.closet_item.custom_type)
+        return this.repo.updateUnitPrice(i.id, userId, priceMap.get(key)!)
+      })
     )
     return toUpdate.length
   }

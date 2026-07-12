@@ -67,11 +67,25 @@ export class ClosetRepository {
     if (!ids.length) return []
     const { data, error } = await this.supabase
       .from('closet_items')
-      .select('id, type')
+      .select('id, type, custom_type')
       .in('id', ids)
 
     if (error) throw error
     return (data ?? []) as ClosetItem[]
+  }
+
+  async getUserCustomTypes(userId: string): Promise<string[]> {
+    const { data, error } = await this.supabase
+      .from('closet_items')
+      .select('custom_type')
+      .eq('user_id', userId)
+      .eq('type', 'other')
+      .not('custom_type', 'is', null)
+      .is('deleted_at', null)
+
+    if (error) throw error
+    const unique = [...new Set((data ?? []).map(r => r.custom_type as string))]
+    return unique.sort()
   }
 
   async countWashed(id: string): Promise<number> {
