@@ -18,7 +18,6 @@ const STANDARD_TYPES: Array<{ value: ItemType; label: string }> = [
   { value: 'underwear', label: 'Underwear' },
   { value: 'sweater',   label: 'Sweater' },
   { value: 'suit',      label: 'Suit' },
-  { value: 'other',     label: 'Other' },
 ]
 
 interface Props {
