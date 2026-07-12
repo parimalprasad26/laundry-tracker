@@ -6,15 +6,15 @@ import { PushSubscriptionRepository } from '@/repositories/PushSubscriptionRepos
 import { BatchRepository } from '@/repositories/BatchRepository'
 import { UserSettingsRepository } from '@/repositories/UserSettingsRepository'
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
-
 const PAGE_SIZE = 500
 
 export async function GET(request: Request) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT!,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!
+  )
+
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
