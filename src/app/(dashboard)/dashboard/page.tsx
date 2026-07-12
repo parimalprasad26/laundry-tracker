@@ -56,7 +56,7 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight">
             {firstName ? `Hey, ${firstName} 👋` : 'Dashboard'}
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Here's what's happening with your laundry.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Here&apos;s what&apos;s happening with your laundry.</p>
         </div>
         <Link href="/batches/new" className={cn(buttonVariants({ size: 'sm' }), 'gap-1.5')}>
           <Plus className="h-4 w-4" />New batch

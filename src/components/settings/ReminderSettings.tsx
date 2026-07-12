@@ -181,7 +181,7 @@ export function ReminderSettings({ initialThreshold }: { initialThreshold: numbe
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              You'll also see an alert on the dashboard after this many days.
+              You&apos;ll also see an alert on the dashboard after this many days.
             </p>
           </div>
         </>
