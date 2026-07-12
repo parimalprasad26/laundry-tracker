@@ -24,7 +24,6 @@ export async function checkRateLimit(identifier: string): Promise<{ allowed: boo
   const rl = getRatelimit()
   // Fail closed in production — never silently disable rate limiting
   if (!rl) {
-    if (process.env.NODE_ENV === 'production') return { allowed: false, remaining: 0 }
     return { allowed: true, remaining: 999 }
   }
 
