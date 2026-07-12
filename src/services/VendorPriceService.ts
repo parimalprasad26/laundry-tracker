@@ -13,6 +13,10 @@ export class VendorPriceService {
     return this.repo.findByVendor(vendorId)
   }
 
+  async countByVendors(vendorIds: string[]): Promise<Map<string, number>> {
+    return this.repo.countByVendors(vendorIds)
+  }
+
   async getPriceMap(vendorId: string): Promise<Map<string, number>> {
     return this.repo.getPriceMap(vendorId)
   }
