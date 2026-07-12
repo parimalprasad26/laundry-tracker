@@ -18,35 +18,30 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
-
   const service = new BatchService(supabase)
+  const batchRepo = new BatchRepository(supabase)
 
-  const [allPage, inLaundryPage, completedPage, settingsResult] = await Promise.all([
+  const [profileResult, allPage, inLaundryPage, completedPage, settingsResult, weeklyTrends, monthlyTrends, yearlyTrends] = await Promise.all([
+    supabase.from('profiles').select('full_name').eq('id', user.id).single(),
     service.listPage({ userId: user.id }),
     service.listPage({ userId: user.id, status: 'in_laundry' }),
     service.listPage({ userId: user.id, status: 'completed' }),
     getUserSettings(),
+    batchRepo.getSpendByPeriod(user.id, 'weekly', 8),
+    batchRepo.getSpendByPeriod(user.id, 'monthly', 6),
+    batchRepo.getSpendByPeriod(user.id, 'yearly', 5),
   ])
 
   const settings = settingsResult.success ? settingsResult.data : null
   const period = settings?.budget_period ?? 'monthly'
   const thresholdDays = settings?.reminder_threshold_days ?? 2
 
-  const batchRepo = new BatchRepository(supabase)
-  const [spendResult, overdueBatches, weeklyTrends, monthlyTrends, yearlyTrends] = await Promise.all([
+  const [spendResult, overdueBatches] = await Promise.all([
     getCurrentPeriodSpend(period),
     batchRepo.findOverdue(user.id, thresholdDays),
-    batchRepo.getSpendByPeriod(user.id, 'weekly', 8),
-    batchRepo.getSpendByPeriod(user.id, 'monthly', 6),
-    batchRepo.getSpendByPeriod(user.id, 'yearly', 5),
   ])
   const spent = spendResult.success ? spendResult.data : 0
-  const firstName = profile?.full_name?.split(' ')[0] ?? null
+  const firstName = profileResult.data?.full_name?.split(' ')[0] ?? null
 
   return (
     <div className="space-y-7 max-w-5xl">
