@@ -2,15 +2,18 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, ListOrdered, Shirt, CalendarDays, History } from 'lucide-react'
+import { LayoutDashboard, ListOrdered, Shirt, CalendarDays, History, BarChart2, Store, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
-  { href: '/batches', label: 'Batches', icon: ListOrdered },
-  { href: '/closet', label: 'Closet', icon: Shirt },
-  { href: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '/history', label: 'History', icon: History },
+  { href: '/dashboard',  label: 'Home',     icon: LayoutDashboard },
+  { href: '/batches',    label: 'Batches',  icon: ListOrdered },
+  { href: '/closet',     label: 'Closet',   icon: Shirt },
+  { href: '/calendar',   label: 'Calendar', icon: CalendarDays },
+  { href: '/history',    label: 'History',  icon: History },
+  { href: '/summary',    label: 'Summary',  icon: BarChart2 },
+  { href: '/vendors',    label: 'Vendors',  icon: Store },
+  { href: '/settings',   label: 'Settings', icon: Settings },
 ]
 
 export function MobileBottomNav() {
@@ -18,7 +21,7 @@ export function MobileBottomNav() {
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-50 border-t bg-card/95 backdrop-blur-sm md:hidden">
-      <div className="flex">
+      <div className="flex overflow-x-auto scrollbar-none">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
           return (
@@ -26,7 +29,7 @@ export function MobileBottomNav() {
               key={href}
               href={href}
               className={cn(
-                'flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-medium transition-colors',
+                'flex shrink-0 flex-col items-center gap-1 py-2.5 px-4 text-xs font-medium transition-colors',
                 active ? 'text-foreground' : 'text-muted-foreground'
               )}
             >
