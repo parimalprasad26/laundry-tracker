@@ -23,6 +23,20 @@ export class VendorPriceRepository {
     return new Map(prices.map(p => [priceKey(p.item_type, p.custom_type), Number(p.unit_price)]))
   }
 
+  async countByVendors(vendorIds: string[]): Promise<Map<string, number>> {
+    if (!vendorIds.length) return new Map()
+    const { data, error } = await this.supabase
+      .from('vendor_item_prices')
+      .select('vendor_id')
+      .in('vendor_id', vendorIds)
+    if (error) throw error
+    const map = new Map<string, number>()
+    for (const row of data ?? []) {
+      map.set(row.vendor_id, (map.get(row.vendor_id) ?? 0) + 1)
+    }
+    return map
+  }
+
   async replaceAll(vendorId: string, userId: string, prices: VendorPriceEntry[]): Promise<void> {
     const { error: delErr } = await this.supabase
       .from('vendor_item_prices')

@@ -19,8 +19,8 @@ export default async function VendorsPage() {
   const vendorService = new VendorService(supabase)
   const priceService = new VendorPriceService(supabase)
   const vendors = await vendorService.list(user.id)
-  const [priceCounts, turnaroundMap] = await Promise.all([
-    Promise.all(vendors.map(v => priceService.getByVendor(v.id).then(p => p.length))),
+  const [priceCountMap, turnaroundMap] = await Promise.all([
+    priceService.countByVendors(vendors.map(v => v.id)),
     new BatchRepository(supabase).getTurnaroundStatsByVendor(user.id),
   ])
 
@@ -44,8 +44,9 @@ export default async function VendorsPage() {
         <p className="text-sm text-muted-foreground text-center py-10">No vendors yet.</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {vendors.map((v, i) => {
+          {vendors.map((v) => {
             const stats = turnaroundMap.get(v.id)
+            const priceCount = priceCountMap.get(v.id) ?? 0
             return (
               <Link key={v.id} href={`/vendors/${v.id}`}>
                 <Card className="hover:shadow-md hover:ring-1 hover:ring-foreground/10 transition-all cursor-pointer">
@@ -67,9 +68,9 @@ export default async function VendorsPage() {
                       </p>
                     )}
                     <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {priceCounts[i] > 0 && (
+                      {priceCount > 0 && (
                         <Badge variant="outline" className="text-[10px] py-0">
-                          {priceCounts[i]} price{priceCounts[i] > 1 ? 's' : ''} set
+                          {priceCount} price{priceCount > 1 ? 's' : ''} set
                         </Badge>
                       )}
                       {stats && (
