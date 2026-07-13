@@ -9,6 +9,10 @@ export interface DisputeClaim {
   description?: string | null
 }
 
+export interface SwapClaim {
+  wrong_item_description: string
+}
+
 export class DisputeService {
   private repo: BatchDisputeRepository
   private stateMachine: BatchStateMachineService
@@ -31,12 +35,36 @@ export class DisputeService {
       damaged_qty: claim.damaged_qty,
       missing_qty: claim.missing_qty,
       description: claim.description,
+      dispute_type: 'damage',
     })
     await this.stateMachine.logEvent(batchId, userId, 'batch.dispute_opened', {
       dispute_id: dispute.id,
       item_id: itemId,
       damaged_qty: claim.damaged_qty,
       missing_qty: claim.missing_qty,
+    })
+    return dispute
+  }
+
+  async openSwap(
+    batchId: string,
+    itemId: string,
+    userId: string,
+    claim: SwapClaim
+  ): Promise<BatchDispute> {
+    const dispute = await this.repo.create({
+      batch_id: batchId,
+      batch_item_id: itemId,
+      user_id: userId,
+      damaged_qty: 0,
+      missing_qty: 0,
+      dispute_type: 'swap',
+      wrong_item_description: claim.wrong_item_description,
+    })
+    await this.stateMachine.logEvent(batchId, userId, 'batch.dispute_opened', {
+      dispute_id: dispute.id,
+      item_id: itemId,
+      dispute_type: 'swap',
     })
     return dispute
   }

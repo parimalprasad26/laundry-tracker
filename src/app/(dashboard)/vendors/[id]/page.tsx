@@ -46,9 +46,13 @@ export default async function VendorDetailPage({ params }: Props) {
   if (!vendor || vendor.user_id !== user.id) notFound()
 
   const closedBatchIds = closedBatches.data.map(b => b.id)
-  const openDisputeCount = closedBatchIds.length > 0
-    ? await new BatchDisputeRepository(supabase).countOpenByBatchIds(closedBatchIds, user.id)
-    : 0
+  const disputeRepo = new BatchDisputeRepository(supabase)
+  const [openDisputeCount, openSwapCount] = closedBatchIds.length > 0
+    ? await Promise.all([
+        disputeRepo.countOpenByBatchIds(closedBatchIds, user.id),
+        disputeRepo.countOpenSwapsByBatchIds(closedBatchIds, user.id),
+      ])
+    : [0, 0]
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -86,6 +90,7 @@ export default async function VendorDetailPage({ params }: Props) {
       <VendorDamageRecord
         damagedBatches={damagedBatches}
         openDisputeCount={openDisputeCount}
+        openSwapCount={openSwapCount}
         totalBatchCount={closedBatches.data.length}
       />
 

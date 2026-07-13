@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { BatchDispute, DisputeStatus } from '@/types'
+import type { BatchDispute, DisputeStatus, DisputeType } from '@/types'
 
 export class BatchDisputeRepository {
   constructor(private supabase: SupabaseClient) {}
@@ -11,6 +11,8 @@ export class BatchDisputeRepository {
     damaged_qty: number
     missing_qty: number
     description?: string | null
+    dispute_type?: DisputeType
+    wrong_item_description?: string | null
   }): Promise<BatchDispute> {
     const { data, error } = await this.supabase
       .from('batch_disputes')
@@ -57,6 +59,19 @@ export class BatchDisputeRepository {
       .in('batch_id', batchIds)
       .eq('user_id', userId)
       .eq('status', 'open')
+    if (error) throw error
+    return count ?? 0
+  }
+
+  async countOpenSwapsByBatchIds(batchIds: string[], userId: string): Promise<number> {
+    if (!batchIds.length) return 0
+    const { count, error } = await this.supabase
+      .from('batch_disputes')
+      .select('*', { count: 'exact', head: true })
+      .in('batch_id', batchIds)
+      .eq('user_id', userId)
+      .eq('status', 'open')
+      .eq('dispute_type', 'swap')
     if (error) throw error
     return count ?? 0
   }

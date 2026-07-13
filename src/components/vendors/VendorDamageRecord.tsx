@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
-import { AlertTriangle, PackageX, ShieldCheck, FileWarning } from 'lucide-react'
+import { AlertTriangle, PackageX, ShieldCheck, FileWarning, ArrowLeftRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface DamagedBatch {
@@ -14,14 +14,15 @@ interface DamagedBatch {
 interface Props {
   damagedBatches: DamagedBatch[]
   openDisputeCount: number
+  openSwapCount: number
   totalBatchCount: number
 }
 
-export function VendorDamageRecord({ damagedBatches, openDisputeCount, totalBatchCount }: Props) {
+export function VendorDamageRecord({ damagedBatches, openDisputeCount, openSwapCount, totalBatchCount }: Props) {
   const totalDamaged = damagedBatches.reduce((s, b) => s + b.totalDamaged, 0)
   const totalMissing = damagedBatches.reduce((s, b) => s + b.totalMissing, 0)
   const affectedBatches = damagedBatches.length
-  const hasIssues = totalDamaged > 0 || totalMissing > 0 || openDisputeCount > 0
+  const hasIssues = totalDamaged > 0 || totalMissing > 0 || openDisputeCount > 0 || openSwapCount > 0
 
   return (
     <div className="space-y-3">
@@ -61,6 +62,12 @@ export function VendorDamageRecord({ damagedBatches, openDisputeCount, totalBatc
               <span className="flex items-center gap-1.5 text-xs font-medium text-orange-700 dark:text-orange-400">
                 <FileWarning className="h-3.5 w-3.5" />
                 {openDisputeCount} open dispute{openDisputeCount !== 1 ? 's' : ''}
+              </span>
+            )}
+            {openSwapCount > 0 && (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-400">
+                <ArrowLeftRight className="h-3.5 w-3.5" />
+                {openSwapCount} swap{openSwapCount !== 1 ? 's' : ''} reported
               </span>
             )}
             <span className="text-xs text-muted-foreground ml-auto">
