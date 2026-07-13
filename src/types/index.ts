@@ -10,6 +10,7 @@ export type BatchStatus = 'draft' | 'in_laundry' | 'returned' | 'closed'
 
 export type BatchEventType =
   | 'batch.sent'
+  | 'batch.collected'
   | 'batch.item_returned'
   | 'batch.all_returned'
   | 'batch.damage_reported'

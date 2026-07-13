@@ -152,6 +152,45 @@ export async function reportBatchItemIssues(
   }
 }
 
+export async function collectBatch(
+  batchId: string,
+  collectedCount: number,
+  hasWrongItem: boolean,
+  notes?: string
+): Promise<ActionResult> {
+  try {
+    const { supabase, service, userId } = await getAuthedService()
+
+    const batchService = new BatchService(supabase)
+    const batch = await batchService.getById(batchId)
+    if (!batch || batch.user_id !== userId) throw new Error('Batch not found')
+    if (batch.status !== 'in_laundry') throw new Error('Batch is not in laundry')
+
+    const totalExpected = batch.total_items
+    const shortfall = totalExpected - collectedCount
+
+    await service.markAllReturned(batchId, userId)
+    const now = new Date().toISOString()
+    await batchService.update(batchId, userId, { returned_at: now })
+
+    const stateMachine = new BatchStateMachineService(supabase)
+    await stateMachine.logEvent(batchId, userId, 'batch.collected', {
+      collected: collectedCount,
+      expected: totalExpected,
+      shortfall,
+      has_wrong_item: hasWrongItem,
+      notes: notes ?? null,
+    })
+    await stateMachine.logEvent(batchId, userId, 'batch.all_returned', { returned_at: now })
+
+    updateTag(`batch-${batchId}`)
+    updateTag('batches')
+    return { success: true, data: undefined }
+  } catch (e) {
+    return handleActionError(e)
+  }
+}
+
 export async function removeBatchItem(id: string, batchId: string): Promise<ActionResult> {
   try {
     const { service, userId } = await getAuthedService()

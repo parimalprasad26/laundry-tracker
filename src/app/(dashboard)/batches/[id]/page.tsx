@@ -145,10 +145,10 @@ export default async function BatchDetailPage({ params }: Props) {
       <Separator />
 
       {/* Return hint */}
-      {batch.status === 'in_laundry' && batchItems.length > 0 && batch.returned_items < batch.total_items && (
+      {batch.status === 'in_laundry' && batchItems.length > 0 && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 rounded-xl px-3 py-2.5">
           <Info className="h-3.5 w-3.5 shrink-0" />
-          Tap an item below to mark it as returned, or use &ldquo;All returned&rdquo; above if everything came back.
+          Tap &ldquo;Collected&rdquo; above when you pick up from the laundry. You&apos;ll inspect items afterwards.
         </div>
       )}
 
