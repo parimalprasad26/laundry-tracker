@@ -4,14 +4,17 @@ A personal laundry management app. Track what you send to the laundry, what you 
 
 ## Features
 
-- **Closet** — maintain a permanent wardrobe list; items are reused across batches
+- **Closet** — maintain a permanent wardrobe list; items are reused across batches; supports custom item types (e.g. "Kurta", "Dupatta") beyond the standard set
 - **Batches** — one batch per drop-off; track status (draft → in laundry → completed)
-- **Vendor rate cards** — set per-type prices (shirt ₹30, pants ₹50) and auto-price batch items
+- **Vendor rate cards** — set per-type prices (shirt ₹30, pants ₹50) and auto-price batch items; custom types from your closet appear automatically in the rate card
 - **Payment flow** — pay upfront at drop-off or on pickup; record actual cost vs rate card estimate
 - **Price delta notes** — note why you paid more/less than the rate card; surfaced in vendor analytics
 - **Budget tracking** — weekly/monthly/yearly spend limits; anchored to sent date so upfront payments count immediately
 - **Calendar** — month view with sent/returned dots; tap any date to see batches
 - **History** — completed batches with full cost breakdown
+- **Summary** — monthly spend analytics: batch count, items sent/returned, avg turnaround, top vendor, damage/missing counts
+- **Vendor comparison** — side-by-side stats across vendors (avg cost, turnaround, damage rate)
+- **Push notifications** — overdue batch reminders via Web Push; delivered by a daily cron job
 
 ## Tech Stack
 
@@ -44,6 +47,13 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Push notifications (Web Push / VAPID) — optional, skip to disable reminders
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+
+# Cron job auth — set this in Vercel env vars and in your cron caller
+CRON_SECRET=
 ```
 
 ### Database
