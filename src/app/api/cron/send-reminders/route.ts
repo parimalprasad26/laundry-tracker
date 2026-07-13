@@ -52,35 +52,59 @@ export async function GET(request: Request) {
 
     for (const userId of userIds) {
       const settings = userSettingsCache.get(userId)!
-      const overdue = await batchRepo.findOverdue(userId, settings.reminder_threshold_days)
-      if (overdue.length === 0) {
+      const userSubs = page.filter(s => s.user_id === userId)
+
+      const [overdue, pendingInspection] = await Promise.all([
+        batchRepo.findOverdue(userId, settings.reminder_threshold_days),
+        batchRepo.findPendingInspection(userId, settings.reminder_threshold_days),
+      ])
+
+      const notifications: Array<{ title: string; body: string; tag: string }> = []
+
+      if (overdue.length > 0) {
+        notifications.push({
+          title: overdue.length === 1
+            ? `"${overdue[0].name}" is still at the laundry`
+            : `${overdue.length} batches are still at the laundry`,
+          body: `They've been out for over ${settings.reminder_threshold_days} ${settings.reminder_threshold_days === 1 ? 'day' : 'days'}. Time to check in.`,
+          tag: 'laundry-overdue',
+        })
+      }
+
+      if (pendingInspection.length > 0) {
+        notifications.push({
+          title: pendingInspection.length === 1
+            ? `"${pendingInspection[0].name}" needs inspection`
+            : `${pendingInspection.length} batches need inspection`,
+          body: `Your laundry is back — check each item for damage or missing pieces before closing.`,
+          tag: 'laundry-inspection',
+        })
+      }
+
+      if (notifications.length === 0) {
         skipped++
         continue
       }
 
-      const userSubs = page.filter(s => s.user_id === userId)
-      const title = overdue.length === 1
-        ? `"${overdue[0].name}" is still at the laundry`
-        : `${overdue.length} batches are still at the laundry`
-      const body = `They've been out for over ${settings.reminder_threshold_days} ${settings.reminder_threshold_days === 1 ? 'day' : 'days'}. Time to check in.`
-
       for (const sub of userSubs) {
-        if (dryRun) {
-          sent++
-          continue
-        }
-        try {
-          await webpush.sendNotification(
-            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-            JSON.stringify({ title, body, url: '/batches', tag: 'laundry-overdue' })
-          )
-          sent++
-        } catch (err: unknown) {
-          if ((err as { statusCode?: number }).statusCode === 410) {
-            await pushRepo.delete(userId, sub.endpoint)
-          } else {
-            errors++
-            Sentry.captureException(err, { extra: { userId, endpoint: sub.endpoint } })
+        for (const notification of notifications) {
+          if (dryRun) {
+            sent++
+            continue
+          }
+          try {
+            await webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
+              JSON.stringify({ ...notification, url: '/batches' })
+            )
+            sent++
+          } catch (err: unknown) {
+            if ((err as { statusCode?: number }).statusCode === 410) {
+              await pushRepo.delete(userId, sub.endpoint)
+            } else {
+              errors++
+              Sentry.captureException(err, { extra: { userId, endpoint: sub.endpoint } })
+            }
           }
         }
       }

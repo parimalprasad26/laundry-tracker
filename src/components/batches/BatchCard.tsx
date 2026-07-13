@@ -1,13 +1,10 @@
 import Link from 'next/link'
 import { BatchStatusBadge } from './BatchStatusBadge'
-import { Progress } from '@/components/ui/progress'
 import { formatDate, formatPrice } from '@/lib/utils'
 import type { BatchWithStatus } from '@/types'
-import { Store, Calendar, MessageSquare } from 'lucide-react'
+import { Store, Calendar, MessageSquare, Truck, ClipboardCheck } from 'lucide-react'
 
 export function BatchCard({ batch }: { batch: BatchWithStatus }) {
-  const pct = batch.total_items > 0 ? (batch.returned_items / batch.total_items) * 100 : 0
-
   return (
     <Link href={`/batches/${batch.id}`}>
       <div className="group rounded-2xl bg-card p-4 ring-1 ring-border hover:ring-foreground/20 hover:shadow-md shadow-sm transition-all duration-150 cursor-pointer h-full flex flex-col gap-3">
@@ -40,14 +37,18 @@ export function BatchCard({ batch }: { batch: BatchWithStatus }) {
           )}
         </div>
 
-        {/* Progress */}
-        {batch.total_items > 0 && (
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{batch.returned_items} of {batch.total_items} returned</span>
-              <span>{Math.round(pct)}%</span>
-            </div>
-            <Progress value={pct} className="h-1.5" />
+        {/* Status footer */}
+        {batch.status === 'in_laundry' && batch.total_items > 0 && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Truck className="h-3.5 w-3.5 shrink-0" />
+            <span>{batch.total_items} item{batch.total_items !== 1 ? 's' : ''} in transit</span>
+          </div>
+        )}
+
+        {batch.status === 'returned' && (
+          <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+            <ClipboardCheck className="h-3.5 w-3.5 shrink-0" />
+            <span>Inspection pending</span>
           </div>
         )}
       </div>
