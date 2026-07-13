@@ -31,7 +31,8 @@ const ITEM_TYPES = [
 
 export function ClosetUploadForm() {
   const router = useRouter()
-  const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const libraryRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [compressed, setCompressed] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -97,11 +98,20 @@ export function ClosetUploadForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       {/* Photo picker */}
       <div>
+        {/* Camera input — opens rear camera on mobile */}
         <input
-          ref={fileRef}
+          ref={cameraRef}
           type="file"
           accept="image/*"
           capture="environment"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
+        />
+        {/* Library input — opens photo library on mobile */}
+        <input
+          ref={libraryRef}
+          type="file"
+          accept="image/*"
           className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
         />
@@ -120,15 +130,15 @@ export function ClosetUploadForm() {
         ) : (
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => cameraRef.current?.click()}
             className="w-full aspect-square max-w-xs mx-auto rounded-2xl border-2 border-dashed border-border hover:border-foreground/30 flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-foreground transition-colors"
           >
             <div className="h-14 w-14 rounded-2xl bg-muted flex items-center justify-center">
               <Camera className="h-7 w-7" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium">Add a photo</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Tap to take or upload</p>
+              <p className="text-sm font-medium">Take a photo</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Opens camera</p>
             </div>
           </button>
         )}
@@ -136,11 +146,8 @@ export function ClosetUploadForm() {
         {!preview && (
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
-            className={cn(
-              'flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-auto mt-2 transition-colors',
-              preview && 'hidden'
-            )}
+            onClick={() => libraryRef.current?.click()}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-auto mt-2 transition-colors"
           >
             <ImagePlus className="h-3.5 w-3.5" />
             Choose from library
