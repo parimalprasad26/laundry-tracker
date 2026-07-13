@@ -26,7 +26,7 @@ export async function addItemsToBatch(
     const batch = await new BatchService(supabase).getById(batchId)
     let priceMap = new Map()
     if (batch?.vendor_id) {
-      priceMap = await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id)
+      priceMap = await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id, userId)
     }
 
     const items = await service.addItems(batchId, userId, closetItemIds, priceMap)
@@ -96,7 +96,7 @@ export async function applyVendorPricesToBatch(batchId: string): Promise<ActionR
     const batch = await new BatchService(supabase).getById(batchId)
     if (!batch?.vendor_id) return { success: false, error: 'Batch has no vendor' }
 
-    const priceMap = await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id)
+    const priceMap = await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id, userId)
     if (!priceMap.size) return { success: false, error: 'Vendor has no prices set' }
 
     const applied = await service.applyVendorPrices(batchId, userId, priceMap)

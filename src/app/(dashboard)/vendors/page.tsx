@@ -20,7 +20,7 @@ export default async function VendorsPage() {
   const priceService = new VendorPriceService(supabase)
   const vendors = await vendorService.list(user.id)
   const [priceCountMap, turnaroundMap] = await Promise.all([
-    priceService.countByVendors(vendors.map(v => v.id)),
+    priceService.countByVendors(vendors.map(v => v.id), user.id),
     new BatchRepository(supabase).getTurnaroundStatsByVendor(user.id),
   ])
 

@@ -9,16 +9,16 @@ export class VendorPriceService {
     this.repo = new VendorPriceRepository(supabase)
   }
 
-  async getByVendor(vendorId: string): Promise<VendorItemPrice[]> {
-    return this.repo.findByVendor(vendorId)
+  async getByVendor(vendorId: string, userId: string): Promise<VendorItemPrice[]> {
+    return this.repo.findByVendor(vendorId, userId)
   }
 
-  async countByVendors(vendorIds: string[]): Promise<Map<string, number>> {
-    return this.repo.countByVendors(vendorIds)
+  async countByVendors(vendorIds: string[], userId: string): Promise<Map<string, number>> {
+    return this.repo.countByVendors(vendorIds, userId)
   }
 
-  async getPriceMap(vendorId: string): Promise<Map<string, number>> {
-    return this.repo.getPriceMap(vendorId)
+  async getPriceMap(vendorId: string, userId: string): Promise<Map<string, number>> {
+    return this.repo.getPriceMap(vendorId, userId)
   }
 
   async save(vendorId: string, userId: string, prices: VendorPriceEntry[]): Promise<void> {

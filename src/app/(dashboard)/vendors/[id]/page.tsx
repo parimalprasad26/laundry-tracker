@@ -32,7 +32,7 @@ export default async function VendorDetailPage({ params }: Props) {
 
   const [vendor, prices, notedBatches, turnaround, customTypes] = await Promise.all([
     new VendorService(supabase).getById(id),
-    new VendorPriceService(supabase).getByVendor(id),
+    new VendorPriceService(supabase).getByVendor(id, user.id),
     new BatchService(supabase).getWithNotesByVendor(id, user.id),
     new BatchRepository(supabase).getTurnaroundStats(user.id, id),
     new ClosetRepository(supabase).getUserCustomTypes(user.id),
