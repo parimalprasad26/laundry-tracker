@@ -254,7 +254,7 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
               className="w-full flex items-center justify-center gap-2 rounded-xl py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-dashed border-border"
             >
               <AlertTriangle className="h-3.5 w-3.5" />
-              Report damage or missing
+              Report damage
             </button>
           )
         )}
