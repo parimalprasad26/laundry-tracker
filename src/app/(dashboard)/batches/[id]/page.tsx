@@ -4,12 +4,14 @@ import { createClient } from '@/lib/supabase/server'
 import { BatchService } from '@/services/BatchService'
 import { BatchItemService } from '@/services/BatchItemService'
 import { InspectionPolicyService } from '@/services/InspectionPolicyService'
+import { DisputeService } from '@/services/DisputeService'
 import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
 import { BatchStatusBadge } from '@/components/batches/BatchStatusBadge'
 import { BatchItemCard } from '@/components/batch-items/BatchItemCard'
 import { AddFromClosetButton } from '@/components/batch-items/AddFromClosetButton'
 import { ApplyVendorPricesBanner } from '@/components/batch-items/ApplyVendorPricesBanner'
 import { InspectionWindowBanner } from '@/components/batch/InspectionWindowBanner'
+import { BatchIssuesPanel } from '@/components/batch/BatchIssuesPanel'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { BatchActions } from '@/components/batches/BatchActions'
@@ -44,6 +46,11 @@ export default async function BatchDetailPage({ params }: Props) {
   ])
 
   if (!batch || batch.user_id !== user.id) notFound()
+
+  // Fetch disputes for returned/closed batches
+  const disputes = (batch.status === 'returned' || batch.status === 'closed')
+    ? await new DisputeService(supabase).getByBatch(id, user.id)
+    : []
 
   // Fetch inspection policy only when needed (returned/closed states)
   let policy: Pick<InspectionPolicy, 'inspection_window_days' | 'dispute_window_days'> = {
@@ -171,6 +178,12 @@ export default async function BatchDetailPage({ params }: Props) {
               />
             ))}
           </div>
+
+          <BatchIssuesPanel
+            batchId={id}
+            batchItems={batchItems}
+            disputes={disputes}
+          />
 
           <CostSummary
             calculatedCost={batch.calculated_cost}
