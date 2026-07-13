@@ -183,6 +183,7 @@ export interface MonthlySummary {
   topVendor: { name: string; batchCount: number } | null
   damagedCount: number
   missingCount: number
+  notReturnedCount: number
 }
 
 // ── Spending trends ───────────────────────────────────────────────────

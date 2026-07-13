@@ -132,7 +132,7 @@ export class BatchRepository {
 
     if (bErr) throw bErr
     if (!batches?.length) {
-      return { year, month, batchCount: 0, totalItemsSent: 0, totalItemsReturned: 0, totalSpend: 0, avgTurnaroundDays: null, topVendor: null, damagedCount: 0, missingCount: 0 }
+      return { year, month, batchCount: 0, totalItemsSent: 0, totalItemsReturned: 0, totalSpend: 0, avgTurnaroundDays: null, topVendor: null, damagedCount: 0, missingCount: 0, notReturnedCount: 0 }
     }
 
     const batchIds = batches.map(b => b.id)
@@ -149,6 +149,11 @@ export class BatchRepository {
     const totalItemsReturned = allItems.reduce((s, i) => s + i.quantity_returned, 0)
     const damagedCount = allItems.reduce((s, i) => s + i.damaged_qty, 0)
     const missingCount = allItems.reduce((s, i) => s + i.missing_qty, 0)
+    // Only count not-returned gap for batches where collection was done (returned_at set)
+    const collectedBatchIds = new Set(batches.filter(b => b.returned_at != null).map(b => b.id))
+    const notReturnedCount = allItems
+      .filter(i => collectedBatchIds.has(i.batch_id))
+      .reduce((s, i) => s + Math.max(0, i.quantity_sent - i.quantity_returned), 0)
     const totalSpend = batches.reduce((s, b) => s + (b.actual_cost ?? 0), 0)
 
     const turnarounds = batches
@@ -170,7 +175,7 @@ export class BatchRepository {
         : null
       : null
 
-    return { year, month, batchCount: batches.length, totalItemsSent, totalItemsReturned, totalSpend, avgTurnaroundDays, topVendor, damagedCount, missingCount }
+    return { year, month, batchCount: batches.length, totalItemsSent, totalItemsReturned, totalSpend, avgTurnaroundDays, topVendor, damagedCount, missingCount, notReturnedCount }
   }
 
   async getSpendByPeriod(userId: string, period: BudgetPeriod, count: number): Promise<SpendPeriodData[]> {
