@@ -6,7 +6,19 @@ export type PaymentStatus = 'unpaid' | 'paid'
 
 export type BudgetPeriod = 'weekly' | 'monthly' | 'yearly'
 
-export type BatchStatus = 'draft' | 'in_laundry' | 'completed'
+export type BatchStatus = 'draft' | 'in_laundry' | 'returned' | 'closed'
+
+export type BatchEventType =
+  | 'batch.sent'
+  | 'batch.item_returned'
+  | 'batch.all_returned'
+  | 'batch.damage_reported'
+  | 'batch.closed'
+  | 'batch.auto_closed'
+  | 'batch.dispute_opened'
+  | 'batch.dispute_resolved'
+
+export type DisputeStatus = 'open' | 'resolved' | 'dismissed'
 
 export interface Profile {
   id: string
@@ -37,12 +49,14 @@ export interface LaundryBatch {
   notes: string | null
   sent_at: string | null
   returned_at: string | null
+  closed_at: string | null
   estimated_return: string | null
   estimated_cost: number | null
   actual_cost: number | null
   payment_status: PaymentStatus
   price_delta_note: string | null
   receipt_path: string | null
+  version: number
   created_at: string
   updated_at: string
   created_by: string | null
@@ -65,6 +79,37 @@ export interface BatchWithStatus extends LaundryBatch {
   calculated_cost: number | null
   status: BatchStatus
   vendor_name: string | null
+}
+
+export interface BatchEvent {
+  id: string
+  batch_id: string
+  user_id: string
+  event_type: BatchEventType
+  payload: Record<string, unknown>
+  created_at: string
+}
+
+export interface BatchDispute {
+  id: string
+  batch_id: string
+  batch_item_id: string
+  user_id: string
+  reported_at: string
+  damaged_qty: number
+  missing_qty: number
+  description: string | null
+  status: DisputeStatus
+  resolved_at: string | null
+  resolution: string | null
+}
+
+export interface InspectionPolicy {
+  user_id: string
+  inspection_window_days: number
+  auto_close_days: number
+  dispute_window_days: number
+  updated_at: string
 }
 
 export interface VendorItemPrice {
@@ -110,6 +155,8 @@ export interface BatchItem {
   unit_price: number | null
   notes: string | null
   returned_at: string | null
+  issue_reported_at: string | null
+  issue_reported_status: 'post_return' | 'dispute' | null
   created_at: string
   updated_at: string
   created_by: string | null

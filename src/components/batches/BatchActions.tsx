@@ -5,15 +5,17 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { markBatchSent, deleteBatch, reBatch } from '@/actions/batches'
 import { markAllBatchItemsReturned } from '@/actions/batch-items'
+import { closeBatch } from '@/actions/close-batch'
 import { RecordPaymentSheet } from './RecordPaymentSheet'
 import { PayNowPromptSheet } from './PayNowPromptSheet'
+import { InspectionSheet } from '@/components/batch/InspectionSheet'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { MoreVertical, Send, Trash2, Loader2, CheckCheck, ReceiptText, RotateCcw } from 'lucide-react'
+import { MoreVertical, Send, Trash2, Loader2, CheckCheck, ReceiptText, RotateCcw, ClipboardCheck } from 'lucide-react'
 import type { BatchWithStatus } from '@/types'
 
 export function BatchActions({ batch }: { batch: BatchWithStatus }) {
@@ -21,6 +23,7 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
   const [isPending, startTransition] = useTransition()
   const [payNowSheetOpen, setPayNowSheetOpen] = useState(false)
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false)
+  const [inspectionSheetOpen, setInspectionSheetOpen] = useState(false)
 
   function handleMarkSent() {
     if (batch.total_items === 0) {
@@ -43,11 +46,24 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
       const result = await markAllBatchItemsReturned(batch.id)
       if (result.success) {
         router.refresh()
+        // Always show inspection sheet — let user decide to close or inspect
         if (batch.actual_cost == null) {
           setPaymentSheetOpen(true)
         } else {
-          toast.success('All items returned!')
+          setInspectionSheetOpen(true)
         }
+      } else {
+        toast.error(result.error)
+      }
+    })
+  }
+
+  function handleCloseInspection() {
+    startTransition(async () => {
+      const result = await closeBatch(batch.id)
+      if (result.success) {
+        toast.success('Batch closed')
+        router.refresh()
       } else {
         toast.error(result.error)
       }
@@ -90,7 +106,7 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
           </Button>
         )}
 
-        {batch.status === 'completed' && (
+        {(batch.status === 'closed') && (
           <Button onClick={handleReBatch} disabled={isPending} size="sm" variant="outline" className="gap-1.5">
             {isPending
               ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -108,6 +124,15 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
           </Button>
         )}
 
+        {batch.status === 'returned' && (
+          <Button onClick={handleCloseInspection} disabled={isPending} size="sm" className="gap-1.5">
+            {isPending
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <ClipboardCheck className="h-4 w-4" />}
+            Close inspection
+          </Button>
+        )}
+
         <DropdownMenu>
           <DropdownMenuTrigger
             disabled={isPending}
@@ -121,6 +146,15 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
                 <DropdownMenuItem onClick={() => setPaymentSheetOpen(true)}>
                   <ReceiptText className="mr-2 h-4 w-4" />
                   {batch.actual_cost != null ? 'Edit payment' : 'Record payment'}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            {batch.status === 'returned' && (
+              <>
+                <DropdownMenuItem onClick={() => setInspectionSheetOpen(true)}>
+                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  Inspection details
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
@@ -148,11 +182,27 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
       <RecordPaymentSheet
         batchId={batch.id}
         open={paymentSheetOpen}
-        onClose={() => setPaymentSheetOpen(false)}
+        onClose={() => {
+          setPaymentSheetOpen(false)
+          // After recording payment on a returned-but-not-closed batch, prompt inspection
+          if (batch.status === 'returned') {
+            setInspectionSheetOpen(true)
+          }
+        }}
         suggestedAmount={batch.calculated_cost}
         calculatedCost={batch.calculated_cost}
         currentActualCost={batch.actual_cost}
         existingNote={batch.price_delta_note}
+      />
+
+      <InspectionSheet
+        batchId={batch.id}
+        open={inspectionSheetOpen}
+        onClose={() => setInspectionSheetOpen(false)}
+        onClosed={() => {
+          setInspectionSheetOpen(false)
+          router.refresh()
+        }}
       />
     </>
   )

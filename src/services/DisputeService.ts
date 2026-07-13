@@ -1,0 +1,67 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { BatchDisputeRepository } from '@/repositories/BatchDisputeRepository'
+import { BatchStateMachineService } from './BatchStateMachineService'
+import type { BatchDispute, DisputeStatus } from '@/types'
+
+export interface DisputeClaim {
+  damaged_qty: number
+  missing_qty: number
+  description?: string | null
+}
+
+export class DisputeService {
+  private repo: BatchDisputeRepository
+  private stateMachine: BatchStateMachineService
+
+  constructor(supabase: SupabaseClient) {
+    this.repo = new BatchDisputeRepository(supabase)
+    this.stateMachine = new BatchStateMachineService(supabase)
+  }
+
+  async open(
+    batchId: string,
+    itemId: string,
+    userId: string,
+    claim: DisputeClaim
+  ): Promise<BatchDispute> {
+    const dispute = await this.repo.create({
+      batch_id: batchId,
+      batch_item_id: itemId,
+      user_id: userId,
+      damaged_qty: claim.damaged_qty,
+      missing_qty: claim.missing_qty,
+      description: claim.description,
+    })
+    await this.stateMachine.logEvent(batchId, userId, 'batch.dispute_opened', {
+      dispute_id: dispute.id,
+      item_id: itemId,
+      damaged_qty: claim.damaged_qty,
+      missing_qty: claim.missing_qty,
+    })
+    return dispute
+  }
+
+  async resolve(
+    disputeId: string,
+    batchId: string,
+    userId: string,
+    resolution: string,
+    status: DisputeStatus = 'resolved'
+  ): Promise<BatchDispute> {
+    const dispute = await this.repo.resolve(disputeId, userId, resolution, status)
+    await this.stateMachine.logEvent(batchId, userId, 'batch.dispute_resolved', {
+      dispute_id: disputeId,
+      resolution,
+      status,
+    })
+    return dispute
+  }
+
+  async getByBatch(batchId: string, userId: string): Promise<BatchDispute[]> {
+    return this.repo.findByBatch(batchId, userId)
+  }
+
+  async countOpen(batchId: string, userId: string): Promise<number> {
+    return this.repo.countOpenByBatch(batchId, userId)
+  }
+}

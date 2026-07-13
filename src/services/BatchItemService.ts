@@ -67,8 +67,14 @@ export class BatchItemService {
     return toUpdate.length
   }
 
-  async reportIssues(id: string, userId: string, damagedQty: number, missingQty: number): Promise<BatchItem> {
-    return this.repo.updateIssues(id, userId, damagedQty, missingQty)
+  async reportIssues(
+    id: string,
+    userId: string,
+    damagedQty: number,
+    missingQty: number,
+    issueStatus: 'post_return' | 'dispute' = 'post_return'
+  ): Promise<BatchItem> {
+    return this.repo.updateIssues(id, userId, damagedQty, missingQty, issueStatus)
   }
 
   async setReturnedQuantity(id: string, userId: string, quantity: number): Promise<BatchItem> {

@@ -6,6 +6,8 @@ import { updateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { BatchItemService } from '@/services/BatchItemService'
 import { BatchService } from '@/services/BatchService'
+import { InspectionPolicyService } from '@/services/InspectionPolicyService'
+import { BatchStateMachineService } from '@/services/BatchStateMachineService'
 import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
 import type { ActionResult, BatchItem } from '@/types'
 
@@ -61,12 +63,23 @@ export async function setBatchItemReturned(
   try {
     const { supabase, service, userId } = await getAuthedService()
     const item = await service.setReturnedQuantity(itemId, userId, quantity)
+    const batchService = new BatchService(supabase)
+
     if (quantity < item.quantity_sent) {
-      const batch = await new BatchService(supabase).getById(batchId)
+      // Item not fully returned — clear batch-level returned_at if it was set
+      const batch = await batchService.getById(batchId)
       if (batch?.returned_at) {
-        await new BatchService(supabase).update(batchId, userId, { returned_at: null })
+        await batchService.update(batchId, userId, { returned_at: null })
+      }
+    } else {
+      // Item fully returned — if all items are now returned, anchor returned_at
+      const batch = await batchService.getById(batchId)
+      if (batch && batch.status === 'returned' && !batch.returned_at) {
+        await batchService.update(batchId, userId, { returned_at: new Date().toISOString() })
+        await new BatchStateMachineService(supabase).logEvent(batchId, userId, 'batch.all_returned')
       }
     }
+
     updateTag(`batch-${batchId}`)
     updateTag('batches')
     return { success: true, data: item }
@@ -79,8 +92,10 @@ export async function markAllBatchItemsReturned(batchId: string): Promise<Action
   try {
     const { supabase, service, userId } = await getAuthedService()
     await service.markAllReturned(batchId, userId)
-    await new BatchService(supabase).update(batchId, userId, {
-      returned_at: new Date().toISOString(),
+    const now = new Date().toISOString()
+    await new BatchService(supabase).update(batchId, userId, { returned_at: now })
+    await new BatchStateMachineService(supabase).logEvent(batchId, userId, 'batch.all_returned', {
+      returned_at: now,
     })
     updateTag(`batch-${batchId}`)
     updateTag('batches')
@@ -114,8 +129,22 @@ export async function reportBatchItemIssues(
   missingQty: number
 ): Promise<ActionResult<BatchItem>> {
   try {
-    const { service, userId } = await getAuthedService()
-    const item = await service.reportIssues(itemId, userId, damagedQty, missingQty)
+    const { supabase, service, userId } = await getAuthedService()
+
+    const batch = await new BatchService(supabase).getById(batchId)
+    if (!batch || batch.user_id !== userId) throw new Error('Batch not found')
+
+    const reportability = await new InspectionPolicyService(supabase).isDamageReportable(batch, userId)
+    if (!reportability.allowed) throw new Error(reportability.reason)
+
+    const item = await service.reportIssues(itemId, userId, damagedQty, missingQty, 'post_return')
+
+    await new BatchStateMachineService(supabase).logEvent(batchId, userId, 'batch.damage_reported', {
+      item_id: itemId,
+      damaged_qty: damagedQty,
+      missing_qty: missingQty,
+    })
+
     updateTag(`batch-${batchId}`)
     return { success: true, data: item }
   } catch (e) {
