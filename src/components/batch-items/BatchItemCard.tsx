@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { removeBatchItem, updateBatchItemPrice } from '@/actions/batch-items'
 import { ReportIssuesSheet } from './ReportIssuesSheet'
 import { DisputeForm } from '@/components/batch/DisputeForm'
+import { SwapForm } from '@/components/batch/SwapForm'
 import { publicImageUrl } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -16,7 +17,7 @@ import {
 import { buttonVariants } from '@/components/ui/button'
 import {
   CheckCircle2, Shirt, MoreVertical,
-  Trash2, AlertTriangle, PackageX, FileWarning,
+  Trash2, AlertTriangle, PackageX, FileWarning, ArrowLeftRight,
 } from 'lucide-react'
 import type { BatchItemWithClosetItem, BatchStatus, InspectionPolicy } from '@/types'
 import { cn } from '@/lib/utils'
@@ -31,15 +32,17 @@ interface Props {
   batchStatus: BatchStatus
   batch: BatchWithStatus
   policy: Pick<InspectionPolicy, 'inspection_window_days' | 'dispute_window_days'>
+  swapReported?: boolean
 }
 
-export function BatchItemCard({ item, batchStatus, batch, policy }: Props) {
+export function BatchItemCard({ item, batchStatus, batch, policy, swapReported = false }: Props) {
   const router = useRouter()
   const [unitPrice, setUnitPrice] = useState<number | null>(item.unit_price)
   const [editingPrice, setEditingPrice] = useState(false)
   const [priceInput, setPriceInput] = useState(item.unit_price != null ? String(item.unit_price) : '')
   const [issuesOpen, setIssuesOpen] = useState(false)
   const [disputeOpen, setDisputeOpen] = useState(false)
+  const [swapOpen, setSwapOpen] = useState(false)
   const priceRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -247,6 +250,24 @@ export function BatchItemCard({ item, batchStatus, batch, policy }: Props) {
           )
         )}
 
+        {/* Swap button — visible on 'returned' status within inspection window */}
+        {batchStatus === 'returned' && actions.canReportDamage && (
+          swapReported ? (
+            <div className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 bg-blue-50 dark:bg-blue-500/10 ring-1 ring-blue-200 dark:ring-blue-500/25 text-xs font-medium text-blue-700 dark:text-blue-300">
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+              Swap reported
+            </div>
+          ) : (
+            <button
+              onClick={() => setSwapOpen(true)}
+              className="w-full flex items-center justify-center gap-2 rounded-xl py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-dashed border-border"
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+              Received a different item?
+            </button>
+          )
+        )}
+
         {/* Dispute button — visible on 'closed' status within dispute window */}
         {batchStatus === 'closed' && actions.canOpenDispute && (
           <button
@@ -270,6 +291,13 @@ export function BatchItemCard({ item, batchStatus, batch, policy }: Props) {
         item={item}
         open={disputeOpen}
         onClose={() => setDisputeOpen(false)}
+        onSaved={() => router.refresh()}
+      />
+
+      <SwapForm
+        item={item}
+        open={swapOpen}
+        onClose={() => setSwapOpen(false)}
         onSaved={() => router.refresh()}
       />
     </Card>

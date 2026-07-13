@@ -64,6 +64,10 @@ export default async function BatchDetailPage({ params }: Props) {
     ? collectedEvent.payload.shortfall
     : 0
 
+  const swapDisputeItemIds = new Set(
+    disputes.filter(d => d.dispute_type === 'swap' && d.status === 'open').map(d => d.batch_item_id)
+  )
+
   const pricedItems = batchItems.filter(i => i.unit_price != null).length
   const hasUnpricedItems = pricedItems < batchItems.length
 
@@ -184,6 +188,7 @@ export default async function BatchDetailPage({ params }: Props) {
                 batchStatus={batch.status}
                 batch={batch}
                 policy={policy}
+                swapReported={swapDisputeItemIds.has(item.id)}
               />
             ))}
           </div>

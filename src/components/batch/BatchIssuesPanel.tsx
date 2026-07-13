@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from 'date-fns'
-import { AlertTriangle, PackageX, MessageSquare, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, PackageX, MessageSquare, CheckCircle2, ArrowLeftRight } from 'lucide-react'
 import { ResolveDisputeButton } from './ResolveDisputeButton'
 import { publicImageUrl } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -17,12 +17,13 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
   const damagedItems = batchItems.filter(i => i.damaged_qty > 0 || i.missing_qty > 0)
   const itemById = new Map(batchItems.map(i => [i.id, i]))
 
-  const openDisputes = disputes.filter(d => d.status === 'open')
+  const openDamageDisputes = disputes.filter(d => d.status === 'open' && d.dispute_type === 'damage')
+  const openSwapDisputes = disputes.filter(d => d.status === 'open' && d.dispute_type === 'swap')
   const closedDisputes = disputes.filter(d => d.status !== 'open')
 
   if (damagedItems.length === 0 && disputes.length === 0) return null
 
-  const totalOpenIssues = damagedItems.length + openDisputes.length
+  const totalOpenIssues = damagedItems.length + openDamageDisputes.length + openSwapDisputes.length
 
   return (
     <div className="space-y-3">
@@ -70,8 +71,8 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
           )
         })}
 
-        {/* ── Open disputes ─────────────────────────────────── */}
-        {openDisputes.map(dispute => {
+        {/* ── Open damage disputes ───────────────────────────── */}
+        {openDamageDisputes.map(dispute => {
           const item = itemById.get(dispute.batch_item_id)
           const ci = item?.closet_item
           const imageUrl = ci?.primary_image_path
@@ -112,6 +113,48 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
                   )}
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     Opened {formatDistanceToNow(new Date(dispute.reported_at), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+              <ResolveDisputeButton disputeId={dispute.id} batchId={batchId} />
+            </div>
+          )
+        })}
+
+        {/* ── Open swap disputes ────────────────────────────── */}
+        {openSwapDisputes.map(dispute => {
+          const item = itemById.get(dispute.batch_item_id)
+          const ci = item?.closet_item
+          const imageUrl = ci?.primary_image_path
+            ? publicImageUrl(SUPABASE_URL, ci.primary_image_path)
+            : null
+          return (
+            <div key={dispute.id} className="px-3 py-3 bg-blue-50/50 dark:bg-blue-500/5 space-y-2.5">
+              <div className="flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg overflow-hidden bg-muted shrink-0 mt-0.5">
+                  {imageUrl
+                    ? <img src={imageUrl} alt={ci?.name} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full bg-muted" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{ci?.name ?? 'Unknown item'}</p>
+                    <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400">
+                      Wrong item
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1">
+                    <ArrowLeftRight className="h-3 w-3 text-blue-500 shrink-0" />
+                    <span className="text-xs text-blue-700 dark:text-blue-300 font-medium">Swap reported</span>
+                  </div>
+                  {dispute.wrong_item_description && (
+                    <div className="flex items-start gap-1 mt-1">
+                      <MessageSquare className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                      <p className="text-xs text-muted-foreground">{dispute.wrong_item_description}</p>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Reported {formatDistanceToNow(new Date(dispute.reported_at), { addSuffix: true })}
                   </p>
                 </div>
               </div>

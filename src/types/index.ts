@@ -20,6 +20,7 @@ export type BatchEventType =
   | 'batch.dispute_resolved'
 
 export type DisputeStatus = 'open' | 'resolved' | 'dismissed'
+export type DisputeType = 'damage' | 'swap'
 
 export interface Profile {
   id: string
@@ -100,6 +101,8 @@ export interface BatchDispute {
   damaged_qty: number
   missing_qty: number
   description: string | null
+  dispute_type: DisputeType
+  wrong_item_description: string | null
   status: DisputeStatus
   resolved_at: string | null
   resolution: string | null
