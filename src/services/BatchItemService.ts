@@ -85,6 +85,14 @@ export class BatchItemService {
     await this.repo.markAllReturned(batchId, userId)
   }
 
+  async markSelectivelyReturned(batchId: string, userId: string, missingItemIds: string[]): Promise<void> {
+    if (missingItemIds.length === 0) {
+      await this.repo.markAllReturned(batchId, userId)
+    } else {
+      await this.repo.markSelectivelyReturned(batchId, userId, missingItemIds)
+    }
+  }
+
   async remove(id: string, userId: string): Promise<void> {
     await this.repo.softDelete(id, userId)
   }

@@ -121,6 +121,23 @@ export class BatchItemRepository {
     )
   }
 
+  async markSelectivelyReturned(batchId: string, userId: string, missingItemIds: string[]): Promise<void> {
+    const items = await this.findByBatch(batchId)
+    const missingSet = new Set(missingItemIds)
+    const now = new Date().toISOString()
+    await Promise.all(
+      items
+        .filter(i => !missingSet.has(i.id))
+        .map(i =>
+          this.supabase
+            .from('batch_items')
+            .update({ quantity_returned: i.quantity_sent, returned_at: now, updated_by: userId })
+            .eq('id', i.id)
+            .eq('user_id', userId)
+        )
+    )
+  }
+
   async softDelete(id: string, userId: string): Promise<void> {
     const { error } = await this.supabase
       .from('batch_items')

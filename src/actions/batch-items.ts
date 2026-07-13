@@ -154,7 +154,8 @@ export async function reportBatchItemIssues(
 
 export async function collectBatch(
   batchId: string,
-  collectedCount: number
+  collectedCount: number,
+  missingItemIds: string[] = []
 ): Promise<ActionResult> {
   try {
     const { supabase, service, userId } = await getAuthedService()
@@ -167,7 +168,7 @@ export async function collectBatch(
     const totalExpected = batch.total_items
     const shortfall = totalExpected - collectedCount
 
-    await service.markAllReturned(batchId, userId)
+    await service.markSelectivelyReturned(batchId, userId, missingItemIds)
     const now = new Date().toISOString()
     await batchService.update(batchId, userId, { returned_at: now })
 
@@ -176,6 +177,7 @@ export async function collectBatch(
       collected: collectedCount,
       expected: totalExpected,
       shortfall,
+      missing_item_ids: missingItemIds,
     })
     await stateMachine.logEvent(batchId, userId, 'batch.all_returned', { returned_at: now })
 
