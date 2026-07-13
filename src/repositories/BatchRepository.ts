@@ -386,6 +386,14 @@ export class BatchRepository {
     return data ?? []
   }
 
+  async findReadyToAutoClose(): Promise<BatchWithStatus[]> {
+    // JOIN with user_inspection_policies so each batch is evaluated against its
+    // owner's configured auto_close_days (default 30 if no policy row exists).
+    const { data, error } = await this.supabase.rpc('get_batches_ready_to_auto_close')
+    if (error) throw error
+    return (data ?? []) as BatchWithStatus[]
+  }
+
   async softDelete(id: string, userId: string): Promise<void> {
     const { error } = await this.supabase
       .from('laundry_batches')
