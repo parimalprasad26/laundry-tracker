@@ -154,9 +154,7 @@ export async function reportBatchItemIssues(
 
 export async function collectBatch(
   batchId: string,
-  collectedCount: number,
-  hasWrongItem: boolean,
-  notes?: string
+  collectedCount: number
 ): Promise<ActionResult> {
   try {
     const { supabase, service, userId } = await getAuthedService()
@@ -178,8 +176,6 @@ export async function collectBatch(
       collected: collectedCount,
       expected: totalExpected,
       shortfall,
-      has_wrong_item: hasWrongItem,
-      notes: notes ?? null,
     })
     await stateMachine.logEvent(batchId, userId, 'batch.all_returned', { returned_at: now })
 

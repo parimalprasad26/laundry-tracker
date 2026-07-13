@@ -12,10 +12,9 @@ import { AddFromClosetButton } from '@/components/batch-items/AddFromClosetButto
 import { ApplyVendorPricesBanner } from '@/components/batch-items/ApplyVendorPricesBanner'
 import { InspectionWindowBanner } from '@/components/batch/InspectionWindowBanner'
 import { BatchIssuesPanel } from '@/components/batch/BatchIssuesPanel'
-import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { BatchActions } from '@/components/batches/BatchActions'
-import { ChevronLeft, Store, Calendar, CalendarCheck, Info, MessageSquare, Lock } from 'lucide-react'
+import { ChevronLeft, Store, Calendar, CalendarCheck, Info, MessageSquare, Lock, Truck } from 'lucide-react'
 import { formatDate, formatPrice, cn } from '@/lib/utils'
 import type { BatchStatus, InspectionPolicy } from '@/types'
 
@@ -65,7 +64,6 @@ export default async function BatchDetailPage({ params }: Props) {
     }
   }
 
-  const pct = batch.total_items > 0 ? (batch.returned_items / batch.total_items) * 100 : 0
   const pricedItems = batchItems.filter(i => i.unit_price != null).length
   const hasUnpricedItems = pricedItems < batchItems.length
 
@@ -119,14 +117,14 @@ export default async function BatchDetailPage({ params }: Props) {
         <BatchActions batch={batch} />
       </div>
 
-      {/* Return progress — only meaningful during in_laundry */}
-      {batch.total_items > 0 && batch.status === 'in_laundry' && (
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{batch.returned_items} of {batch.total_items} items returned</span>
-            <span>{Math.round(pct)}%</span>
-          </div>
-          <Progress value={pct} className="h-2" />
+      {/* In transit indicator */}
+      {batch.status === 'in_laundry' && batch.sent_at && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-xl px-3 py-2.5">
+          <Truck className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            {batch.total_items} item{batch.total_items !== 1 ? 's' : ''} at the laundry
+            {' · '}sent {formatDate(batch.sent_at)}
+          </span>
         </div>
       )}
 
