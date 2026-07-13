@@ -16,7 +16,7 @@ interface Props {
 export function AddFromClosetButton({ batchId, existingClosetItemIds, batchStatus }: Props) {
   const [open, setOpen] = useState(false)
 
-  if (batchStatus === 'completed') return null
+  if (batchStatus === 'returned' || batchStatus === 'closed') return null
 
   return (
     <>

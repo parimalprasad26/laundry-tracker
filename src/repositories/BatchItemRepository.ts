@@ -63,10 +63,22 @@ export class BatchItemRepository {
     return data ?? []
   }
 
-  async updateIssues(id: string, userId: string, damagedQty: number, missingQty: number): Promise<BatchItem> {
+  async updateIssues(
+    id: string,
+    userId: string,
+    damagedQty: number,
+    missingQty: number,
+    issueStatus: 'post_return' | 'dispute'
+  ): Promise<BatchItem> {
     const { data, error } = await this.supabase
       .from('batch_items')
-      .update({ damaged_qty: damagedQty, missing_qty: missingQty, updated_by: userId })
+      .update({
+        damaged_qty: damagedQty,
+        missing_qty: missingQty,
+        issue_reported_at: new Date().toISOString(),
+        issue_reported_status: issueStatus,
+        updated_by: userId,
+      })
       .eq('id', id)
       .eq('user_id', userId)
       .select()

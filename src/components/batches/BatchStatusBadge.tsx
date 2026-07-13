@@ -10,8 +10,12 @@ const STATUS_CONFIG: Record<BatchStatus, { label: string; className: string }> =
     label: 'In Laundry',
     className: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
   },
-  completed: {
-    label: 'Completed',
+  returned: {
+    label: 'Returned',
+    className: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  },
+  closed: {
+    label: 'Closed',
     className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
   },
 }

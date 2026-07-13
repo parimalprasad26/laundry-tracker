@@ -3,17 +3,19 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { BatchService } from '@/services/BatchService'
 import { BatchItemService } from '@/services/BatchItemService'
+import { InspectionPolicyService } from '@/services/InspectionPolicyService'
 import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
 import { BatchStatusBadge } from '@/components/batches/BatchStatusBadge'
 import { BatchItemCard } from '@/components/batch-items/BatchItemCard'
 import { AddFromClosetButton } from '@/components/batch-items/AddFromClosetButton'
 import { ApplyVendorPricesBanner } from '@/components/batch-items/ApplyVendorPricesBanner'
+import { InspectionWindowBanner } from '@/components/batch/InspectionWindowBanner'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { BatchActions } from '@/components/batches/BatchActions'
-import { ChevronLeft, Store, Calendar, CalendarCheck, Info, MessageSquare } from 'lucide-react'
+import { ChevronLeft, Store, Calendar, CalendarCheck, Info, MessageSquare, Lock } from 'lucide-react'
 import { formatDate, formatPrice, cn } from '@/lib/utils'
-import type { BatchStatus } from '@/types'
+import type { BatchStatus, InspectionPolicy } from '@/types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -43,15 +45,30 @@ export default async function BatchDetailPage({ params }: Props) {
 
   if (!batch || batch.user_id !== user.id) notFound()
 
+  // Fetch inspection policy only when needed (returned/closed states)
+  let policy: Pick<InspectionPolicy, 'inspection_window_days' | 'dispute_window_days'> = {
+    inspection_window_days: 7,
+    dispute_window_days: 30,
+  }
+  if (batch.status === 'returned' || batch.status === 'closed') {
+    const fullPolicy = await new InspectionPolicyService(supabase).getPolicy(user.id)
+    policy = {
+      inspection_window_days: fullPolicy.inspection_window_days,
+      dispute_window_days: fullPolicy.dispute_window_days,
+    }
+  }
+
   const pct = batch.total_items > 0 ? (batch.returned_items / batch.total_items) * 100 : 0
   const pricedItems = batchItems.filter(i => i.unit_price != null).length
   const hasUnpricedItems = pricedItems < batchItems.length
 
   let showApplyPricesBanner = false
-  if (batch.vendor_id && hasUnpricedItems && batchItems.length > 0 && batch.status !== 'completed') {
+  if (batch.vendor_id && hasUnpricedItems && batchItems.length > 0 && batch.status === 'in_laundry') {
     const priceMap = await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id, user.id)
     showApplyPricesBanner = priceMap.size > 0
   }
+
+  const isFinalized = batch.status === 'returned' || batch.status === 'closed'
 
   return (
     <div className="space-y-5 max-w-2xl">
@@ -85,13 +102,18 @@ export default async function BatchDetailPage({ params }: Props) {
                 <CalendarCheck className="h-3.5 w-3.5" />Back {formatDate(batch.returned_at)}
               </span>
             )}
+            {batch.closed_at && (
+              <span className="flex items-center gap-1">
+                <Lock className="h-3.5 w-3.5" />Closed {formatDate(batch.closed_at)}
+              </span>
+            )}
           </div>
         </div>
         <BatchActions batch={batch} />
       </div>
 
-      {/* Return progress */}
-      {batch.total_items > 0 && (
+      {/* Return progress — only meaningful during in_laundry */}
+      {batch.total_items > 0 && batch.status === 'in_laundry' && (
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{batch.returned_items} of {batch.total_items} items returned</span>
@@ -103,6 +125,14 @@ export default async function BatchDetailPage({ params }: Props) {
 
       {batch.notes && (
         <p className="text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-2">{batch.notes}</p>
+      )}
+
+      {/* Inspection window banner — shown when items are back but not yet closed */}
+      {batch.status === 'returned' && batch.returned_at && (
+        <InspectionWindowBanner
+          returnedAt={batch.returned_at}
+          inspectionWindowDays={policy.inspection_window_days}
+        />
       )}
 
       <Separator />
@@ -132,7 +162,13 @@ export default async function BatchDetailPage({ params }: Props) {
 
           <div className="space-y-3">
             {batchItems.map(item => (
-              <BatchItemCard key={item.id} item={item} batchStatus={batch.status} />
+              <BatchItemCard
+                key={item.id}
+                item={item}
+                batchStatus={batch.status}
+                batch={batch}
+                policy={policy}
+              />
             ))}
           </div>
 
@@ -161,7 +197,7 @@ function CostSummary({
   status: BatchStatus
 }) {
   const unpricedCount = totalItems - pricedItems
-  const isCompleted = status === 'completed'
+  const isFinalized = status === 'returned' || status === 'closed'
 
   const deltaVsRateCard = calculatedCost != null && actualCost != null
     ? actualCost - calculatedCost : null
@@ -173,7 +209,7 @@ function CostSummary({
     <div className="space-y-2">
       <div className={cn(
         'rounded-xl border divide-y text-sm',
-        isCompleted
+        isFinalized
           ? 'bg-emerald-50 border-emerald-200 divide-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-900/60 dark:divide-emerald-900/60'
           : 'bg-muted/50 border-border divide-border'
       )}>
@@ -181,7 +217,7 @@ function CostSummary({
           <Row label="Rate card estimate" value={formatPrice(calculatedCost)} />
         )}
 
-        {unpricedCount > 0 && calculatedCost != null && (
+        {unpricedCount > 0 && calculatedCost != null && !isFinalized && (
           <div className="px-4 py-2 text-xs text-muted-foreground">
             {unpricedCount} item{unpricedCount > 1 ? 's' : ''} unpriced — tap &ldquo;—&rdquo; on a card to set manually
           </div>
