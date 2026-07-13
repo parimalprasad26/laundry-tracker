@@ -4,18 +4,18 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { markBatchSent, deleteBatch, reBatch } from '@/actions/batches'
-import { markAllBatchItemsReturned } from '@/actions/batch-items'
 import { closeBatch } from '@/actions/close-batch'
 import { RecordPaymentSheet } from './RecordPaymentSheet'
 import { PayNowPromptSheet } from './PayNowPromptSheet'
 import { InspectionSheet } from '@/components/batch/InspectionSheet'
+import { CollectionSheet } from '@/components/batch/CollectionSheet'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { MoreVertical, Send, Trash2, Loader2, CheckCheck, ReceiptText, RotateCcw, ClipboardCheck } from 'lucide-react'
+import { MoreVertical, Send, Trash2, Loader2, PackageCheck, ReceiptText, RotateCcw, ClipboardCheck } from 'lucide-react'
 import type { BatchWithStatus } from '@/types'
 
 export function BatchActions({ batch }: { batch: BatchWithStatus }) {
@@ -24,6 +24,7 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
   const [payNowSheetOpen, setPayNowSheetOpen] = useState(false)
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false)
   const [inspectionSheetOpen, setInspectionSheetOpen] = useState(false)
+  const [collectionSheetOpen, setCollectionSheetOpen] = useState(false)
 
   function handleMarkSent() {
     if (batch.total_items === 0) {
@@ -41,21 +42,14 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
     })
   }
 
-  function handleMarkAllReturned() {
-    startTransition(async () => {
-      const result = await markAllBatchItemsReturned(batch.id)
-      if (result.success) {
-        router.refresh()
-        // Always show inspection sheet — let user decide to close or inspect
-        if (batch.actual_cost == null) {
-          setPaymentSheetOpen(true)
-        } else {
-          setInspectionSheetOpen(true)
-        }
-      } else {
-        toast.error(result.error)
-      }
-    })
+  function handleCollectionConfirmed() {
+    setCollectionSheetOpen(false)
+    router.refresh()
+    if (batch.actual_cost == null) {
+      setPaymentSheetOpen(true)
+    } else {
+      setInspectionSheetOpen(true)
+    }
   }
 
   function handleCloseInspection() {
@@ -115,12 +109,10 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
           </Button>
         )}
 
-        {batch.status === 'in_laundry' && batch.returned_items < batch.total_items && (
-          <Button onClick={handleMarkAllReturned} disabled={isPending} size="sm" variant="outline" className="gap-1.5">
-            {isPending
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : <CheckCheck className="h-4 w-4" />}
-            All returned
+        {batch.status === 'in_laundry' && (
+          <Button onClick={() => setCollectionSheetOpen(true)} disabled={isPending} size="sm" variant="outline" className="gap-1.5">
+            <PackageCheck className="h-4 w-4" />
+            Collected
           </Button>
         )}
 
@@ -203,6 +195,13 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
           setInspectionSheetOpen(false)
           router.refresh()
         }}
+      />
+
+      <CollectionSheet
+        batch={batch}
+        open={collectionSheetOpen}
+        onClose={() => setCollectionSheetOpen(false)}
+        onConfirmed={handleCollectionConfirmed}
       />
     </>
   )
