@@ -49,6 +49,18 @@ export class BatchDisputeRepository {
     return data as BatchDispute
   }
 
+  async countOpenByBatchIds(batchIds: string[], userId: string): Promise<number> {
+    if (!batchIds.length) return 0
+    const { count, error } = await this.supabase
+      .from('batch_disputes')
+      .select('*', { count: 'exact', head: true })
+      .in('batch_id', batchIds)
+      .eq('user_id', userId)
+      .eq('status', 'open')
+    if (error) throw error
+    return count ?? 0
+  }
+
   async countOpenByBatch(batchId: string, userId: string): Promise<number> {
     const { count, error } = await this.supabase
       .from('batch_disputes')

@@ -11,7 +11,9 @@ import { VendorTurnaroundStats } from '@/components/vendors/VendorTurnaroundStat
 import { Separator } from '@/components/ui/separator'
 import { ChevronLeft } from 'lucide-react'
 import { BatchRepository } from '@/repositories/BatchRepository'
+import { BatchDisputeRepository } from '@/repositories/BatchDisputeRepository'
 import { ClosetRepository } from '@/repositories/ClosetRepository'
+import { VendorDamageRecord } from '@/components/vendors/VendorDamageRecord'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -30,15 +32,23 @@ export default async function VendorDetailPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [vendor, prices, notedBatches, turnaround, customTypes] = await Promise.all([
+  const batchRepo = new BatchRepository(supabase)
+  const [vendor, prices, notedBatches, turnaround, customTypes, damagedBatches, closedBatches] = await Promise.all([
     new VendorService(supabase).getById(id),
     new VendorPriceService(supabase).getByVendor(id, user.id),
     new BatchService(supabase).getWithNotesByVendor(id, user.id),
-    new BatchRepository(supabase).getTurnaroundStats(user.id, id),
+    batchRepo.getTurnaroundStats(user.id, id),
     new ClosetRepository(supabase).getUserCustomTypes(user.id),
+    batchRepo.findDamagedBatchesByVendor(id, user.id),
+    batchRepo.findPage({ userId: user.id, vendorId: id, status: 'closed' }),
   ])
 
   if (!vendor || vendor.user_id !== user.id) notFound()
+
+  const closedBatchIds = closedBatches.data.map(b => b.id)
+  const openDisputeCount = closedBatchIds.length > 0
+    ? await new BatchDisputeRepository(supabase).countOpenByBatchIds(closedBatchIds, user.id)
+    : 0
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -70,6 +80,14 @@ export default async function VendorDetailPage({ params }: Props) {
           count={turnaround.count}
         />
       </div>
+
+      <Separator />
+
+      <VendorDamageRecord
+        damagedBatches={damagedBatches}
+        openDisputeCount={openDisputeCount}
+        totalBatchCount={closedBatches.data.length}
+      />
 
       <Separator />
 

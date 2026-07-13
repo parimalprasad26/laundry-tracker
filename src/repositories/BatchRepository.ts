@@ -323,6 +323,53 @@ export class BatchRepository {
     return result
   }
 
+  async findDamagedBatchesByVendor(vendorId: string, userId: string): Promise<
+    Array<{ batchId: string; batchName: string; totalDamaged: number; totalMissing: number; closedAt: string }>
+  > {
+    // Get closed batch IDs for this vendor
+    const { data: batches, error: bErr } = await this.supabase
+      .from('batch_with_status')
+      .select('id, name, closed_at')
+      .eq('vendor_id', vendorId)
+      .eq('user_id', userId)
+      .eq('status', 'closed')
+      .order('closed_at', { ascending: false })
+
+    if (bErr) throw bErr
+    if (!batches?.length) return []
+
+    const batchIds = batches.map(b => b.id)
+
+    const { data: items, error: iErr } = await this.supabase
+      .from('batch_items')
+      .select('batch_id, damaged_qty, missing_qty')
+      .in('batch_id', batchIds)
+      .is('deleted_at', null)
+      .or('damaged_qty.gt.0,missing_qty.gt.0')
+
+    if (iErr) throw iErr
+
+    // Aggregate per batch in JS
+    const byBatch = new Map<string, { damaged: number; missing: number }>()
+    for (const item of items ?? []) {
+      const cur = byBatch.get(item.batch_id) ?? { damaged: 0, missing: 0 }
+      byBatch.set(item.batch_id, {
+        damaged: cur.damaged + (item.damaged_qty ?? 0),
+        missing: cur.missing + (item.missing_qty ?? 0),
+      })
+    }
+
+    return batches
+      .filter(b => byBatch.has(b.id))
+      .map(b => ({
+        batchId: b.id,
+        batchName: b.name,
+        totalDamaged: byBatch.get(b.id)!.damaged,
+        totalMissing: byBatch.get(b.id)!.missing,
+        closedAt: b.closed_at as string,
+      }))
+  }
+
   async softDelete(id: string, userId: string): Promise<void> {
     const { error } = await this.supabase
       .from('laundry_batches')
