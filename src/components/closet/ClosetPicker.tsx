@@ -98,7 +98,8 @@ export function ClosetPicker({ batchId, existingClosetItemIds, open, onClose }: 
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="max-w-2xl mx-auto">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
               {items.map(item => {
                 const alreadyAdded = existingClosetItemIds.includes(item.id)
                 const isSelected = selected.has(item.id)
@@ -145,6 +146,7 @@ export function ClosetPicker({ batchId, existingClosetItemIds, open, onClose }: 
                   </button>
                 )
               })}
+            </div>
             </div>
           )}
         </div>
