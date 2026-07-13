@@ -52,7 +52,7 @@ export function InspectionSheet({ batchId, open, onClose, onClosed }: Props) {
         <div className="space-y-3 mb-6">
           <div className="flex items-start gap-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 ring-1 ring-emerald-200 dark:ring-emerald-900/40 px-3 py-2.5">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-emerald-700 dark:text-emerald-300">All items marked returned</p>
+            <p className="text-xs text-emerald-700 dark:text-emerald-300">All items collected from laundry</p>
           </div>
 
           <div className="flex items-start gap-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 ring-1 ring-amber-200 dark:ring-amber-500/25 px-3 py-2.5">

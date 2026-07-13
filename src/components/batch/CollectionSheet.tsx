@@ -19,31 +19,23 @@ interface Props {
 
 export function CollectionSheet({ batch, open, onClose, onConfirmed }: Props) {
   const [count, setCount] = useState(batch.total_items)
-  const [hasWrongItem, setHasWrongItem] = useState(false)
-  const [notes, setNotes] = useState('')
   const [isPending, startTransition] = useTransition()
 
   const shortfall = batch.total_items - count
 
   function handleOpenChange(v: boolean) {
     if (!v) onClose()
-    else {
-      setCount(batch.total_items)
-      setHasWrongItem(false)
-      setNotes('')
-    }
+    else setCount(batch.total_items)
   }
 
   function handleConfirm() {
     startTransition(async () => {
-      const result = await collectBatch(batch.id, count, hasWrongItem, notes || undefined)
+      const result = await collectBatch(batch.id, count)
       if (result.success) {
         if (shortfall > 0) {
           toast.warning(
             `${shortfall} item${shortfall > 1 ? 's' : ''} unaccounted for — mark ${shortfall > 1 ? 'them' : 'it'} missing during inspection`
           )
-        } else if (hasWrongItem) {
-          toast.warning('Wrong item noted — check your items during inspection')
         }
         onConfirmed()
       } else {
@@ -108,27 +100,6 @@ export function CollectionSheet({ batch, open, onClose, onConfirmed }: Props) {
             </div>
           )}
 
-          <label className="flex items-center gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={hasWrongItem}
-              onChange={e => setHasWrongItem(e.target.checked)}
-              disabled={isPending}
-              className="h-4 w-4 rounded"
-            />
-            <span className="text-sm">Received a wrong or unexpected item</span>
-          </label>
-
-          {hasWrongItem && (
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Describe what was received..."
-              rows={2}
-              disabled={isPending}
-              className="w-full rounded-lg border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-            />
-          )}
         </div>
 
         <div className="space-y-2">
