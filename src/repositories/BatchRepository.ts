@@ -370,6 +370,22 @@ export class BatchRepository {
       }))
   }
 
+  async findPendingInspection(userId: string, thresholdDays: number): Promise<BatchWithStatus[]> {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - thresholdDays)
+
+    const { data, error } = await this.supabase
+      .from('batch_with_status')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'returned')
+      .lte('returned_at', cutoff.toISOString())
+      .order('returned_at', { ascending: true })
+
+    if (error) throw error
+    return data ?? []
+  }
+
   async softDelete(id: string, userId: string): Promise<void> {
     const { error } = await this.supabase
       .from('laundry_batches')
