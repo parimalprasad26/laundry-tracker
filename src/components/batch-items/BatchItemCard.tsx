@@ -215,8 +215,8 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
           </div>
         )}
 
-        {/* Damage button — visible on 'returned' status within inspection window */}
-        {batchStatus === 'returned' && actions.canReportDamage && (
+        {/* Damage button — visible on 'returned' status within inspection window, hidden if swap already reported */}
+        {batchStatus === 'returned' && actions.canReportDamage && !swapReported && (
           hasIssues ? (
             <button
               onClick={() => setIssuesOpen(true)}
