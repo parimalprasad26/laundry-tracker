@@ -26,13 +26,14 @@ Budget (your weekly/monthly/yearly spend limit)
 
 | Page | What it does |
 |------|-------------|
-| **Dashboard** | Spend vs budget widget + stats + recent batches |
+| **Dashboard** | Spend vs budget widget + stats + recent batches + spending trends chart |
 | **Batches** | Full list of all batches with filters |
-| **Closet** | Your permanent wardrobe — add clothes once, reuse across batches |
+| **Closet** | Your permanent wardrobe — add clothes once, reuse across batches; supports custom item types |
 | **Calendar** | Month view showing when batches were sent and returned |
 | **History** | Only completed batches |
-| **Vendors** | Laundry shops + their price lists |
-| **Settings** | Budget amount and period |
+| **Summary** | Monthly analytics — batch count, items sent/returned, avg turnaround, top vendor, damage/missing counts |
+| **Vendors** | Laundry shops + their price lists; compare vendors side-by-side |
+| **Settings** | Budget amount, period, and overdue reminder threshold |
 
 ---
 
@@ -55,6 +56,8 @@ Status is computed automatically — you never set it manually. It's derived fro
 ### Closet Items
 
 Your closet is a permanent list of your clothes. You add a shirt once, then include it in any number of batches. Each closet item has a **type** (shirt, pants, jacket, etc.) which is used to auto-price it from the vendor's rate card.
+
+If your item doesn't fit a standard type, choose **Other** and enter a custom name (e.g. "Kurta", "Dupatta", "Saree"). Custom names must be 2–30 characters and can't duplicate a standard type name. Custom types you've added appear automatically as rows in the vendor rate card so you can set prices for them too.
 
 ### Vendor Rate Card
 
@@ -232,6 +235,40 @@ Shows at the bottom of the batch detail when any pricing exists:
 
 ---
 
+## Summary Page
+
+The **Summary** page shows one month at a time (use ← → to navigate):
+
+- **Batch count** — how many batches were completed that month
+- **Items sent / returned** — totals across all batches
+- **Avg turnaround** — average days between sent and returned
+- **Top vendor** — vendor used most that month
+- **Damaged / missing** — total item issues flagged across batches
+
+---
+
+## Vendor Comparison
+
+On the **Vendors** page, if you have 2+ vendors a **Compare** button appears. The comparison page shows side-by-side stats:
+
+- Avg cost per batch
+- Total spend
+- Avg turnaround days
+- Total items sent
+- Damage rate and missing rate
+
+Use this to decide which vendor gives better value.
+
+---
+
+## Push Notification Reminders
+
+If you opt in to push notifications (prompted during onboarding or via Settings), you'll receive a daily reminder whenever a batch has been **in laundry longer than your reminder threshold** (default 2 days, configurable in Settings).
+
+Notifications are delivered by a server-side cron job. They fire even when the app isn't open.
+
+---
+
 ## Edge Cases
 
 | Situation | What happens |
@@ -243,3 +280,5 @@ Shows at the bottom of the batch detail when any pricing exists:
 | Try to delete a closet item in an active batch | Blocked with an error message |
 | Vendor has no price for an item type | Item added with no price; banner appears to apply remaining vendor prices |
 | Budget period is weekly, today is Sunday | Week is counted Mon–Sun; Sunday is the last day of the current week |
+| Custom type name matches a standard type (e.g. "shirt") | Blocked — must use the standard type instead |
+| Closet has custom types but vendor has no price for them | Custom type rows appear in rate card with blank price; items added with no price |
