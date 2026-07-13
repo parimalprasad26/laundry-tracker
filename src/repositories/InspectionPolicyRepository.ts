@@ -23,4 +23,18 @@ export class InspectionPolicyRepository {
       ...DEFAULTS,
     }
   }
+
+  async save(
+    userId: string,
+    fields: Partial<Omit<InspectionPolicy, 'user_id' | 'updated_at'>>
+  ): Promise<InspectionPolicy> {
+    const { data, error } = await this.supabase
+      .from('user_inspection_policies')
+      .upsert({ user_id: userId, ...fields, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as InspectionPolicy
+  }
 }
