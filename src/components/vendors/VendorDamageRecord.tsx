@@ -7,7 +7,7 @@ interface DamagedBatch {
   batchId: string
   batchName: string
   totalDamaged: number
-  totalMissing: number
+  totalNotReturned: number
   closedAt: string
 }
 
@@ -20,9 +20,9 @@ interface Props {
 
 export function VendorDamageRecord({ damagedBatches, openDisputeCount, openSwapCount, totalBatchCount }: Props) {
   const totalDamaged = damagedBatches.reduce((s, b) => s + b.totalDamaged, 0)
-  const totalMissing = damagedBatches.reduce((s, b) => s + b.totalMissing, 0)
+  const totalNotReturned = damagedBatches.reduce((s, b) => s + b.totalNotReturned, 0)
   const affectedBatches = damagedBatches.length
-  const hasIssues = totalDamaged > 0 || totalMissing > 0 || openDisputeCount > 0 || openSwapCount > 0
+  const hasIssues = totalDamaged > 0 || totalNotReturned > 0 || openDisputeCount > 0 || openSwapCount > 0
 
   return (
     <div className="space-y-3">
@@ -52,10 +52,10 @@ export function VendorDamageRecord({ damagedBatches, openDisputeCount, openSwapC
                 {totalDamaged} item{totalDamaged !== 1 ? 's' : ''} damaged
               </span>
             )}
-            {totalMissing > 0 && (
+            {totalNotReturned > 0 && (
               <span className="flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-400">
                 <PackageX className="h-3.5 w-3.5" />
-                {totalMissing} item{totalMissing !== 1 ? 's' : ''} missing
+                {totalNotReturned} item{totalNotReturned !== 1 ? 's' : ''} not returned
               </span>
             )}
             {openDisputeCount > 0 && (
@@ -94,9 +94,9 @@ export function VendorDamageRecord({ damagedBatches, openDisputeCount, openSwapC
                     <AlertTriangle className="h-3 w-3" />{b.totalDamaged}
                   </span>
                 )}
-                {b.totalMissing > 0 && (
+                {b.totalNotReturned > 0 && (
                   <span className="flex items-center gap-1 text-xs text-red-700 dark:text-red-400 font-medium">
-                    <PackageX className="h-3 w-3" />{b.totalMissing}
+                    <PackageX className="h-3 w-3" />{b.totalNotReturned}
                   </span>
                 )}
               </div>

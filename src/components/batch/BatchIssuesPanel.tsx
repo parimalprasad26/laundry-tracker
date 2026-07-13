@@ -14,16 +14,17 @@ interface Props {
 }
 
 export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
-  const damagedItems = batchItems.filter(i => i.damaged_qty > 0 || i.missing_qty > 0)
+  const notCollectedItems = batchItems.filter(i => i.quantity_returned === 0)
+  const damagedItems = batchItems.filter(i => i.quantity_returned > 0 && (i.damaged_qty > 0 || i.missing_qty > 0))
   const itemById = new Map(batchItems.map(i => [i.id, i]))
 
   const openDamageDisputes = disputes.filter(d => d.status === 'open' && d.dispute_type === 'damage')
   const openSwapDisputes = disputes.filter(d => d.status === 'open' && d.dispute_type === 'swap')
   const closedDisputes = disputes.filter(d => d.status !== 'open')
 
-  if (damagedItems.length === 0 && disputes.length === 0) return null
+  if (notCollectedItems.length === 0 && damagedItems.length === 0 && disputes.length === 0) return null
 
-  const totalOpenIssues = damagedItems.length + openDamageDisputes.length + openSwapDisputes.length
+  const totalOpenIssues = notCollectedItems.length + damagedItems.length + openDamageDisputes.length + openSwapDisputes.length
 
   return (
     <div className="space-y-3">
@@ -37,6 +38,30 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
       </div>
 
       <div className="rounded-xl border divide-y overflow-hidden">
+
+        {/* ── Not collected ─────────────────────────────────── */}
+        {notCollectedItems.map(item => {
+          const ci = item.closet_item
+          const imageUrl = ci.primary_image_path
+            ? publicImageUrl(SUPABASE_URL, ci.primary_image_path)
+            : null
+          return (
+            <div key={item.id} className="flex items-start gap-3 px-3 py-3 bg-red-50/50 dark:bg-red-500/5">
+              <div className="h-9 w-9 rounded-lg overflow-hidden bg-muted shrink-0 mt-0.5">
+                {imageUrl
+                  ? <img src={imageUrl} alt={ci.name} className="w-full h-full object-cover" />
+                  : <div className="w-full h-full bg-muted" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{ci.name}</p>
+                <span className="flex items-center gap-1 text-xs text-red-700 dark:text-red-400 font-medium mt-1">
+                  <PackageX className="h-3 w-3" />Not collected
+                </span>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Didn&apos;t come back from the laundry</p>
+              </div>
+            </div>
+          )
+        })}
 
         {/* ── Inspection damage ──────────────────────────────── */}
         {damagedItems.map(item => {

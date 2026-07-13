@@ -324,9 +324,8 @@ export class BatchRepository {
   }
 
   async findDamagedBatchesByVendor(vendorId: string, userId: string): Promise<
-    Array<{ batchId: string; batchName: string; totalDamaged: number; totalMissing: number; closedAt: string }>
+    Array<{ batchId: string; batchName: string; totalDamaged: number; totalNotReturned: number; closedAt: string }>
   > {
-    // Get closed batch IDs for this vendor
     const { data: batches, error: bErr } = await this.supabase
       .from('batch_with_status')
       .select('id, name, closed_at')
@@ -342,20 +341,23 @@ export class BatchRepository {
 
     const { data: items, error: iErr } = await this.supabase
       .from('batch_items')
-      .select('batch_id, damaged_qty, missing_qty')
+      .select('batch_id, damaged_qty, missing_qty, quantity_sent, quantity_returned')
       .in('batch_id', batchIds)
       .is('deleted_at', null)
-      .or('damaged_qty.gt.0,missing_qty.gt.0')
 
     if (iErr) throw iErr
 
-    // Aggregate per batch in JS
-    const byBatch = new Map<string, { damaged: number; missing: number }>()
+    // Aggregate per batch — notReturned covers both legacy missing_qty and
+    // new-model not-collected items (quantity_returned < quantity_sent).
+    const byBatch = new Map<string, { damaged: number; notReturned: number }>()
     for (const item of items ?? []) {
-      const cur = byBatch.get(item.batch_id) ?? { damaged: 0, missing: 0 }
+      const damaged = item.damaged_qty ?? 0
+      const notReturned = (item.missing_qty ?? 0) + Math.max(0, (item.quantity_sent ?? 0) - (item.quantity_returned ?? 0))
+      if (damaged === 0 && notReturned === 0) continue
+      const cur = byBatch.get(item.batch_id) ?? { damaged: 0, notReturned: 0 }
       byBatch.set(item.batch_id, {
-        damaged: cur.damaged + (item.damaged_qty ?? 0),
-        missing: cur.missing + (item.missing_qty ?? 0),
+        damaged: cur.damaged + damaged,
+        notReturned: cur.notReturned + notReturned,
       })
     }
 
@@ -365,7 +367,7 @@ export class BatchRepository {
         batchId: b.id,
         batchName: b.name,
         totalDamaged: byBatch.get(b.id)!.damaged,
-        totalMissing: byBatch.get(b.id)!.missing,
+        totalNotReturned: byBatch.get(b.id)!.notReturned,
         closedAt: b.closed_at as string,
       }))
   }
