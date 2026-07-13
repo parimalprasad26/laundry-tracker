@@ -16,9 +16,9 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { MoreVertical, Send, Trash2, Loader2, PackageCheck, ReceiptText, RotateCcw, ClipboardCheck } from 'lucide-react'
-import type { BatchWithStatus } from '@/types'
+import type { BatchWithStatus, BatchItemWithClosetItem } from '@/types'
 
-export function BatchActions({ batch }: { batch: BatchWithStatus }) {
+export function BatchActions({ batch, batchItems = [] }: { batch: BatchWithStatus; batchItems?: BatchItemWithClosetItem[] }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [payNowSheetOpen, setPayNowSheetOpen] = useState(false)
@@ -199,6 +199,7 @@ export function BatchActions({ batch }: { batch: BatchWithStatus }) {
 
       <CollectionSheet
         batch={batch}
+        batchItems={batchItems}
         open={collectionSheetOpen}
         onClose={() => setCollectionSheetOpen(false)}
         onConfirmed={handleCollectionConfirmed}

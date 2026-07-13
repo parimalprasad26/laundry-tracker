@@ -205,18 +205,27 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
 
         {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
 
-        {/* Returned/closed: static quantity display */}
+        {/* Returned/closed: collected vs not-collected */}
         {(batchStatus === 'returned' || batchStatus === 'closed') && (
-          <div className="flex items-center gap-2 rounded-xl px-4 py-2.5 bg-emerald-50 dark:bg-emerald-500/15">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-              {item.quantity_sent === 1 ? 'Returned' : `${item.quantity_returned} / ${item.quantity_sent} returned`}
-            </span>
-          </div>
+          item.quantity_returned > 0 ? (
+            <div className="flex items-center gap-2 rounded-xl px-4 py-2.5 bg-emerald-50 dark:bg-emerald-500/15">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                {item.quantity_sent === 1 ? 'Returned' : `${item.quantity_returned} / ${item.quantity_sent} returned`}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-xl px-4 py-2.5 bg-red-50 dark:bg-red-500/15">
+              <PackageX className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <span className="text-sm font-medium text-red-700 dark:text-red-300">
+                Not collected
+              </span>
+            </div>
+          )
         )}
 
-        {/* Damage button — visible on 'returned' status within inspection window */}
-        {batchStatus === 'returned' && actions.canReportDamage && (
+        {/* Damage button — only for collected items within inspection window */}
+        {batchStatus === 'returned' && actions.canReportDamage && !swapReported && item.quantity_returned > 0 && (
           hasIssues ? (
             <button
               onClick={() => setIssuesOpen(true)}
@@ -250,8 +259,8 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
           )
         )}
 
-        {/* Swap button — visible on 'returned' status within inspection window */}
-        {batchStatus === 'returned' && actions.canReportDamage && (
+        {/* Swap button — only for collected items within inspection window */}
+        {batchStatus === 'returned' && actions.canReportDamage && item.quantity_returned > 0 && (
           swapReported ? (
             <div className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 bg-blue-50 dark:bg-blue-500/10 ring-1 ring-blue-200 dark:ring-blue-500/25 text-xs font-medium text-blue-700 dark:text-blue-300">
               <ArrowLeftRight className="h-3.5 w-3.5" />

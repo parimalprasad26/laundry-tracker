@@ -12,10 +12,9 @@ import { AddFromClosetButton } from '@/components/batch-items/AddFromClosetButto
 import { ApplyVendorPricesBanner } from '@/components/batch-items/ApplyVendorPricesBanner'
 import { InspectionWindowBanner } from '@/components/batch/InspectionWindowBanner'
 import { BatchIssuesPanel } from '@/components/batch/BatchIssuesPanel'
-import { BatchEventRepository } from '@/repositories/BatchEventRepository'
 import { Separator } from '@/components/ui/separator'
 import { BatchActions } from '@/components/batches/BatchActions'
-import { ChevronLeft, Store, Calendar, CalendarCheck, Info, MessageSquare, Lock, Truck, PackageX } from 'lucide-react'
+import { ChevronLeft, Store, Calendar, CalendarCheck, Info, MessageSquare, Lock, Truck } from 'lucide-react'
 import { formatDate, formatPrice, cn } from '@/lib/utils'
 import type { BatchStatus, InspectionPolicy } from '@/types'
 
@@ -49,20 +48,14 @@ export default async function BatchDetailPage({ params }: Props) {
 
   const isPostCollection = batch.status === 'returned' || batch.status === 'closed'
 
-  const [disputes, rawPolicy, collectionEvents] = await Promise.all([
+  const [disputes, rawPolicy] = await Promise.all([
     isPostCollection ? new DisputeService(supabase).getByBatch(id, user.id) : Promise.resolve([]),
     isPostCollection ? new InspectionPolicyService(supabase).getPolicy(user.id) : Promise.resolve(null),
-    batch.status === 'returned' ? new BatchEventRepository(supabase).findByBatch(id) : Promise.resolve([]),
   ])
 
   const policy: Pick<InspectionPolicy, 'inspection_window_days' | 'dispute_window_days'> = rawPolicy
     ? { inspection_window_days: rawPolicy.inspection_window_days, dispute_window_days: rawPolicy.dispute_window_days }
     : { inspection_window_days: 7, dispute_window_days: 30 }
-
-  const collectedEvent = [...collectionEvents].reverse().find(e => e.event_type === 'batch.collected')
-  const collectionShortfall = typeof collectedEvent?.payload?.shortfall === 'number'
-    ? collectedEvent.payload.shortfall
-    : 0
 
   const swapDisputeItemIds = new Set(
     disputes.filter(d => d.dispute_type === 'swap' && d.status === 'open').map(d => d.batch_item_id)
@@ -118,7 +111,7 @@ export default async function BatchDetailPage({ params }: Props) {
             )}
           </div>
         </div>
-        <BatchActions batch={batch} />
+        <BatchActions batch={batch} batchItems={batchItems} />
       </div>
 
       {/* In transit indicator */}
@@ -142,17 +135,6 @@ export default async function BatchDetailPage({ params }: Props) {
           returnedAt={batch.returned_at}
           inspectionWindowDays={policy.inspection_window_days}
         />
-      )}
-
-      {/* Shortfall banner — persistent reminder when collection count was short */}
-      {batch.status === 'returned' && collectionShortfall > 0 && (
-        <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 ring-1 ring-amber-200 dark:ring-amber-500/25 px-3 py-2.5">
-          <PackageX className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-700 dark:text-amber-300">
-            <strong>{collectionShortfall} item{collectionShortfall > 1 ? 's' : ''} not collected</strong>
-            {' '}— find {collectionShortfall > 1 ? 'them' : 'it'} below and mark {collectionShortfall > 1 ? 'them' : 'it'} as missing.
-          </p>
-        </div>
       )}
 
       <Separator />
