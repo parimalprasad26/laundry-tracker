@@ -27,6 +27,13 @@ export class InspectionPolicyService {
     return this.repo.findByUser(userId)
   }
 
+  async savePolicy(
+    userId: string,
+    fields: Partial<Omit<InspectionPolicy, 'user_id' | 'updated_at'>>
+  ): Promise<InspectionPolicy> {
+    return this.repo.save(userId, fields)
+  }
+
   async isDamageReportable(
     batch: BatchWithStatus,
     userId: string
