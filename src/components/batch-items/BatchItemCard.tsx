@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { setBatchItemReturned, removeBatchItem, updateBatchItemPrice } from '@/actions/batch-items'
+import { removeBatchItem, updateBatchItemPrice } from '@/actions/batch-items'
 import { ReportIssuesSheet } from './ReportIssuesSheet'
 import { DisputeForm } from '@/components/batch/DisputeForm'
 import { publicImageUrl } from '@/lib/utils'
@@ -15,7 +15,7 @@ import {
 
 import { buttonVariants } from '@/components/ui/button'
 import {
-  CheckCircle2, Circle, Minus, Plus, Loader2, Shirt, MoreVertical,
+  CheckCircle2, Shirt, MoreVertical,
   Trash2, AlertTriangle, PackageX, FileWarning,
 } from 'lucide-react'
 import type { BatchItemWithClosetItem, BatchStatus, InspectionPolicy } from '@/types'
@@ -35,7 +35,6 @@ interface Props {
 
 export function BatchItemCard({ item, batchStatus, batch, policy }: Props) {
   const router = useRouter()
-  const [returned, setReturned] = useState(item.quantity_returned)
   const [unitPrice, setUnitPrice] = useState<number | null>(item.unit_price)
   const [editingPrice, setEditingPrice] = useState(false)
   const [priceInput, setPriceInput] = useState(item.unit_price != null ? String(item.unit_price) : '')
@@ -47,7 +46,6 @@ export function BatchItemCard({ item, batchStatus, batch, policy }: Props) {
   const actions = useBatchActions(batch, policy)
 
   // Sync local state when server data changes after router.refresh()
-  useEffect(() => { setReturned(item.quantity_returned) }, [item.quantity_returned])
   useEffect(() => {
     if (!editingPrice) {
       setUnitPrice(item.unit_price)
@@ -57,7 +55,6 @@ export function BatchItemCard({ item, batchStatus, batch, policy }: Props) {
 
   const ci = item.closet_item
   const imageUrl = ci.primary_image_path ? publicImageUrl(SUPABASE_URL, ci.primary_image_path) : null
-  const isFullyReturned = returned === item.quantity_sent
   const lineTotal = unitPrice != null ? unitPrice * item.quantity_sent : null
   const hasIssues = item.damaged_qty > 0 || item.missing_qty > 0
 
@@ -68,19 +65,6 @@ export function BatchItemCard({ item, batchStatus, batch, policy }: Props) {
       if (result.success) {
         router.refresh()
       } else {
-        toast.error(result.error)
-      }
-    })
-  }
-
-  function commit(next: number) {
-    if (next === returned || next < 0 || next > item.quantity_sent) return
-    const prev = returned
-    setReturned(next)
-    startTransition(async () => {
-      const result = await setBatchItemReturned(item.id, item.batch_id, next)
-      if (!result.success) {
-        setReturned(prev)
         toast.error(result.error)
       }
     })
@@ -120,7 +104,6 @@ export function BatchItemCard({ item, batchStatus, batch, policy }: Props) {
   return (
     <Card className={cn(
       'transition-all duration-200',
-      isFullyReturned && batchStatus === 'in_laundry' && 'ring-1 ring-emerald-200 dark:ring-emerald-900/60',
       batchStatus === 'returned' && 'ring-1 ring-amber-100 dark:ring-amber-900/40',
       batchStatus === 'closed' && 'ring-1 ring-emerald-200 dark:ring-emerald-900/60',
     )}>
@@ -218,64 +201,6 @@ export function BatchItemCard({ item, batchStatus, batch, policy }: Props) {
         </div>
 
         {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
-
-        {/* Return control — only active for in_laundry */}
-        {batchStatus === 'in_laundry' && (
-          item.quantity_sent === 1 ? (
-            <button
-              onClick={() => commit(isFullyReturned ? 0 : 1)}
-              disabled={isPending}
-              className={cn(
-                'w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all duration-150 disabled:opacity-60',
-                isFullyReturned
-                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
-              )}
-            >
-              {isPending
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : isFullyReturned
-                  ? <CheckCircle2 className="h-4 w-4" />
-                  : <Circle className="h-4 w-4" />}
-              {isFullyReturned ? 'Returned' : 'Mark as returned'}
-            </button>
-          ) : (
-            <div className={cn(
-              'flex items-center justify-between rounded-xl px-4 py-2.5',
-              isFullyReturned ? 'bg-emerald-50 dark:bg-emerald-500/15' : 'bg-muted/60'
-            )}>
-              <div className="flex items-center gap-2">
-                {isFullyReturned
-                  ? <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  : isPending
-                    ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    : null}
-                <span className={cn('text-sm font-medium', isFullyReturned ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground')}>
-                  {isFullyReturned ? 'All returned' : 'Returned'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => commit(returned - 1)}
-                  disabled={returned === 0 || isPending}
-                  className="h-7 w-7 rounded-lg bg-background flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30"
-                >
-                  <Minus className="h-3.5 w-3.5" />
-                </button>
-                <span className={cn('text-sm font-semibold tabular-nums w-12 text-center', isFullyReturned && 'text-emerald-700 dark:text-emerald-300')}>
-                  {returned} / {item.quantity_sent}
-                </span>
-                <button
-                  onClick={() => commit(returned + 1)}
-                  disabled={isFullyReturned || isPending}
-                  className="h-7 w-7 rounded-lg bg-background flex items-center justify-center hover:bg-accent transition-colors disabled:opacity-30"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-          )
-        )}
 
         {/* Returned/closed: static quantity display */}
         {(batchStatus === 'returned' || batchStatus === 'closed') && (
