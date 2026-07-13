@@ -17,8 +17,8 @@ async function getAuthedService() {
 
 export async function getVendorPrices(vendorId: string): Promise<ActionResult<VendorItemPrice[]>> {
   try {
-    const { service } = await getAuthedService()
-    const prices = await service.getByVendor(vendorId)
+    const { service, userId } = await getAuthedService()
+    const prices = await service.getByVendor(vendorId, userId)
     return { success: true, data: prices }
   } catch (e) {
     return handleActionError(e)

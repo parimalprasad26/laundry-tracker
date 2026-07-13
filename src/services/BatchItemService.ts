@@ -32,7 +32,7 @@ export class BatchItemService {
     let items: Array<{ closet_item_id: string; unit_price: number | null }>
 
     if (priceMap && priceMap.size > 0) {
-      const closetItems = await this.closetRepo.findManyByIds(closetItemIds)
+      const closetItems = await this.closetRepo.findManyByIds(closetItemIds, userId)
       const byId = new Map(closetItems.map(ci => [ci.id, ci]))
       items = closetItemIds.map(id => {
         const ci = byId.get(id)

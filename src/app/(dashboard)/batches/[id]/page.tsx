@@ -49,7 +49,7 @@ export default async function BatchDetailPage({ params }: Props) {
 
   let showApplyPricesBanner = false
   if (batch.vendor_id && hasUnpricedItems && batchItems.length > 0 && batch.status !== 'completed') {
-    const priceMap = await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id)
+    const priceMap = await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id, user.id)
     showApplyPricesBanner = priceMap.size > 0
   }
 

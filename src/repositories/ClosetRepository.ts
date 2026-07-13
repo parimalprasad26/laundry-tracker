@@ -63,12 +63,13 @@ export class ClosetRepository {
     if (error) throw error
   }
 
-  async findManyByIds(ids: string[]): Promise<ClosetItem[]> {
+  async findManyByIds(ids: string[], userId: string): Promise<ClosetItem[]> {
     if (!ids.length) return []
     const { data, error } = await this.supabase
       .from('closet_items')
       .select('id, type, custom_type')
       .in('id', ids)
+      .eq('user_id', userId)
 
     if (error) throw error
     return (data ?? []) as ClosetItem[]

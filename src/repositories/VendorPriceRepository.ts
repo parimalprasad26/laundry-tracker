@@ -7,28 +7,30 @@ export type VendorPriceEntry = { item_type: ItemType; custom_type?: string | nul
 export class VendorPriceRepository {
   constructor(private supabase: SupabaseClient) {}
 
-  async findByVendor(vendorId: string): Promise<VendorItemPrice[]> {
+  async findByVendor(vendorId: string, userId: string): Promise<VendorItemPrice[]> {
     const { data, error } = await this.supabase
       .from('vendor_item_prices')
       .select('*')
       .eq('vendor_id', vendorId)
+      .eq('user_id', userId)
       .order('item_type')
 
     if (error) throw error
     return data ?? []
   }
 
-  async getPriceMap(vendorId: string): Promise<Map<string, number>> {
-    const prices = await this.findByVendor(vendorId)
+  async getPriceMap(vendorId: string, userId: string): Promise<Map<string, number>> {
+    const prices = await this.findByVendor(vendorId, userId)
     return new Map(prices.map(p => [priceKey(p.item_type, p.custom_type), Number(p.unit_price)]))
   }
 
-  async countByVendors(vendorIds: string[]): Promise<Map<string, number>> {
+  async countByVendors(vendorIds: string[], userId: string): Promise<Map<string, number>> {
     if (!vendorIds.length) return new Map()
     const { data, error } = await this.supabase
       .from('vendor_item_prices')
       .select('vendor_id')
       .in('vendor_id', vendorIds)
+      .eq('user_id', userId)
     if (error) throw error
     const map = new Map<string, number>()
     for (const row of data ?? []) {
@@ -42,6 +44,7 @@ export class VendorPriceRepository {
       .from('vendor_item_prices')
       .delete()
       .eq('vendor_id', vendorId)
+      .eq('user_id', userId)
 
     if (delErr) throw delErr
     if (!prices.length) return
