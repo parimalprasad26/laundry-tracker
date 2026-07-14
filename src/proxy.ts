@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 
-const PUBLIC_PATHS = ['/login', '/auth/callback', '/api/auth', '/api/cron', '/terms', '/privacy']
+const PUBLIC_PATHS = ['/login', '/auth/callback', '/api/auth', '/api/cron', '/api/e2e-auth', '/terms', '/privacy']
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })

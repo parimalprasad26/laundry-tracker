@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { toast } from 'sonner'
 import { collectBatch } from '@/actions/batch-items'
 import {
@@ -28,6 +28,16 @@ export function CollectionSheet({ batch, batchItems, open, onClose, onConfirmed 
   const [isPending, startTransition] = useTransition()
 
   const shortfall = batch.total_items - count
+
+  // Re-sync count whenever the sheet opens so stale initialState doesn't linger
+  // after items are added/removed while the sheet was closed.
+  useEffect(() => {
+    if (open) {
+      setStep(1)
+      setCount(batch.total_items)
+      setMissingIds(new Set())
+    }
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleOpenChange(v: boolean) {
     if (!v) { onClose(); reset() }
