@@ -63,12 +63,13 @@ export class BatchItemRepository {
     return data ?? []
   }
 
-  async bulkUpdateUnitPrice(ids: string[], userId: string, price: number): Promise<void> {
+  async bulkUpdateUnitPrice(ids: string[], userId: string, batchId: string, price: number): Promise<void> {
     const { error } = await this.supabase
       .from('batch_items')
       .update({ unit_price: price, updated_by: userId })
       .in('id', ids)
       .eq('user_id', userId)
+      .eq('batch_id', batchId)
     if (error) throw error
   }
 

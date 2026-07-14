@@ -5,6 +5,7 @@ import { handleActionError } from '@/lib/handle-error'
 import { updateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { VendorPriceService } from '@/services/VendorPriceService'
+import { BatchService } from '@/services/BatchService'
 import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
 import type { VendorItemPrice, ActionResult } from '@/types'
@@ -52,13 +53,19 @@ export async function setVendorCustomTypePrice(
     const { data: { user }, error } = await supabase.auth.getUser()
     if (error || !user) throw new Error('Unauthorized')
 
+    const batch = await new BatchService(supabase).getById(batchId)
+    if (!batch || batch.user_id !== user.id) throw new Error('Batch not found')
+    if (batch.status === 'returned' || batch.status === 'closed') {
+      throw new Error(`Cannot set prices on a batch with status '${batch.status}'`)
+    }
+
     const priceRepo = new VendorPriceRepository(supabase)
     const itemRepo = new BatchItemRepository(supabase)
 
     await Promise.all(
       entries.flatMap(({ customType, price, batchItemIds }) => [
         priceRepo.upsertOne(vendorId, user.id, { item_type: 'other', custom_type: customType, unit_price: price }),
-        itemRepo.bulkUpdateUnitPrice(batchItemIds, user.id, price),
+        itemRepo.bulkUpdateUnitPrice(batchItemIds, user.id, batchId, price),
       ])
     )
 
