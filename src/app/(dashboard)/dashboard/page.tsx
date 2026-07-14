@@ -21,11 +21,11 @@ export default async function DashboardPage() {
   const service = new BatchService(supabase)
   const batchRepo = new BatchRepository(supabase)
 
-  const [profileResult, allPage, inLaundryPage, completedPage, settingsResult, weeklyTrends, monthlyTrends, yearlyTrends] = await Promise.all([
+  const [profileResult, allPage, inLaundryPage, closedPage, settingsResult, weeklyTrends, monthlyTrends, yearlyTrends] = await Promise.all([
     supabase.from('profiles').select('full_name').eq('id', user.id).single(),
     service.listPage({ userId: user.id }),
     service.listPage({ userId: user.id, status: 'in_laundry' }),
-    service.listPage({ userId: user.id, status: 'completed' }),
+    service.listPage({ userId: user.id, status: 'closed' }),
     getUserSettings(),
     batchRepo.getSpendByPeriod(user.id, 'weekly', 8),
     batchRepo.getSpendByPeriod(user.id, 'monthly', 6),
@@ -95,8 +95,8 @@ export default async function DashboardPage() {
             </div>
             <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
           </div>
-          <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{completedPage.data.length}</p>
-          <p className="text-sm text-muted-foreground mt-1">Completed</p>
+          <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{closedPage.data.length}</p>
+          <p className="text-sm text-muted-foreground mt-1">Closed</p>
         </div>
       </div>
 

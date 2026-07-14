@@ -48,7 +48,8 @@ export function BatchFilters() {
           <SelectItem value="all">All statuses</SelectItem>
           <SelectItem value="draft">Draft</SelectItem>
           <SelectItem value="in_laundry">In Laundry</SelectItem>
-          <SelectItem value="completed">Completed</SelectItem>
+          <SelectItem value="returned">Returned</SelectItem>
+          <SelectItem value="closed">Closed</SelectItem>
         </SelectContent>
       </Select>
     </div>
