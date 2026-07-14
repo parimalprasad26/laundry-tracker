@@ -84,7 +84,8 @@ test.describe('Batch lifecycle (full flow)', () => {
     await page.goto(batchUrl) // re-navigate for clean state
     await page.waitForLoadState('networkidle')
     await page.getByRole('button', { name: 'Close inspection' }).click()
-    await expect(page.getByText('Closed').first()).toBeVisible({ timeout: 8000 })
+    await expect(page.getByText('Closed').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('networkidle') // wait for router.refresh() soft-navigation to settle
 
     // ── 6. Appears in history ──────────────────────────────────────────
     await page.goto('/history')
@@ -221,8 +222,8 @@ test.describe('Damage & dispute flow', () => {
     // ── 6. Close inspection ────────────────────────────────────────────
     // "Close inspection" calls closeBatch() directly — no intermediate sheet
     await page.getByRole('button', { name: 'Close inspection' }).click()
-    await page.waitForLoadState('networkidle')
     await expect(page.getByText('Closed').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('networkidle') // wait for router.refresh() soft-navigation to settle
 
     // ── 7. Open a dispute on the item ─────────────────────────────────
     await page.goto(batchUrl)
