@@ -5,6 +5,7 @@ export default defineConfig({
   fullyParallel: false, // serial to avoid DB race conditions
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  timeout: 60000, // lifecycle tests span many DB round-trips; WebKit needs extra time
   reporter: 'html',
   globalSetup: './tests/e2e/global-setup.ts',
   globalTeardown: './tests/e2e/global-teardown.ts',
@@ -15,6 +16,7 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'mobile-safari', use: { ...devices['iPhone 14'] } },
   ],
   webServer: {
     command: process.env.CI ? 'npm run build && npm start' : 'npm run dev',

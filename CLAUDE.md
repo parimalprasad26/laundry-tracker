@@ -49,9 +49,10 @@ All tables have: `user_id`, `created_at`, `updated_at`, `created_by`, `updated_b
 Status is never stored. It is computed live by the view every query:
 
 ```sql
-sent_at IS NULL                              → 'draft'
-sent_at IS NOT NULL, total != returned       → 'in_laundry'
-sent_at IS NOT NULL, total == returned       → 'completed'
+closed_at IS NOT NULL                        → 'closed'
+returned_at IS NOT NULL                      → 'returned'
+sent_at IS NOT NULL                          → 'in_laundry'
+(else)                                       → 'draft'
 ```
 
 The view also computes `total_items`, `returned_items`, `calculated_cost` (sum of `unit_price * quantity_sent`), and joins `vendor_name`.
@@ -69,7 +70,7 @@ The view also computes `total_items`, `returned_items`, `calculated_cost` (sum o
 - `calculated_cost` — live, computed by view from item `unit_price * quantity_sent`. Changes whenever a price is edited.
 - `actual_cost` — recorded once when payment is made, stored permanently on `laundry_batches`. Anchors budget tracking.
 
-**Prices are locked on completed batches** — `BatchItemCard` disables the price tap and hides the `⋮` menu when `batchStatus === 'completed'`. Do not remove this guard.
+**Prices are locked on returned and closed batches** — `BatchItemCard` disables the price tap and hides the `⋮` menu when `isEditable` is false (i.e. `batchStatus` is `'returned'` or `'closed'`). Do not remove this guard.
 
 ## Payment Flow
 

@@ -84,7 +84,8 @@ test.describe('Batch lifecycle (full flow)', () => {
     await page.goto(batchUrl) // re-navigate for clean state
     await page.waitForLoadState('networkidle')
     await page.getByRole('button', { name: 'Close inspection' }).click()
-    await expect(page.getByText('Closed').first()).toBeVisible({ timeout: 8000 })
+    await expect(page.getByText('Closed').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('networkidle') // wait for router.refresh() soft-navigation to settle
 
     // ── 6. Appears in history ──────────────────────────────────────────
     await page.goto('/history')
@@ -148,6 +149,105 @@ test.describe('Batch lifecycle (shortfall — item not returned)', () => {
 
     // ── 6. Batch is marked Returned despite shortfall ──────────────────
     await expect(page.getByText('Returned').first()).toBeVisible({ timeout: 10000 })
+  })
+})
+
+test.describe('Damage & dispute flow', () => {
+  test('report damage after collection → close → open dispute → resolve', async ({ page }) => {
+    const BATCH_NAME = `E2E Test Damage ${Date.now()}`
+
+    // ── 1. Create batch ────────────────────────────────────────────────
+    await page.goto('/batches/new')
+    await page.getByLabel('Batch name *').fill(BATCH_NAME)
+    await page.getByRole('button', { name: 'Create batch' }).click()
+    await page.waitForURL(/\/batches\/[0-9a-f-]{36}$/, { timeout: 10000 })
+    const batchUrl = page.url()
+
+    // ── 2. Add an item ─────────────────────────────────────────────────
+    await page.getByRole('button', { name: /add from closet/i }).click()
+    const sheet = page.locator('[role="dialog"]')
+    await sheet.waitFor({ timeout: 5000 })
+    const itemsArea = sheet.locator('div.overflow-y-auto')
+    await itemsArea.waitFor({ timeout: 5000 })
+    const firstItem = itemsArea.locator('button[type="button"]:not([disabled])').first()
+    await expect(firstItem).toBeVisible({ timeout: 5000 })
+    await firstItem.click()
+    await page.waitForTimeout(300)
+    await sheet.getByRole('button', { name: /add \d+ item/i }).click()
+    await sheet.waitFor({ state: 'hidden', timeout: 8000 }).catch(() => {})
+    await expect(page.getByText(/Items \([1-9]\d*\)/)).toBeVisible({ timeout: 8000 })
+
+    // ── 3. Send to laundry ─────────────────────────────────────────────
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('button', { name: 'Send to laundry' }).click()
+    await expect(page.getByRole('button', { name: /pay on pickup/i })).toBeVisible({ timeout: 8000 })
+    await page.getByRole('button', { name: /pay on pickup/i }).click()
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByRole('button', { name: 'Collected' })).toBeVisible({ timeout: 10000 })
+
+    // ── 4. Collect ─────────────────────────────────────────────────────
+    await page.getByRole('button', { name: 'Collected' }).click()
+    await expect(page.getByRole('button', { name: /confirm collection/i })).toBeVisible({ timeout: 5000 })
+    await page.getByRole('button', { name: /confirm collection/i }).click()
+    await expect(page.getByText('Returned').first()).toBeVisible({ timeout: 10000 })
+
+    // Dismiss payment sheet if it auto-opens (pay on pickup)
+    const amountInput = page.getByRole('spinbutton')
+    if (await amountInput.isVisible({ timeout: 3000 })) {
+      await amountInput.fill('100')
+      await page.getByRole('button', { name: /save payment/i }).click()
+      await page.waitForTimeout(500)
+    }
+
+    // ── 5. Report damage on the first item ────────────────────────────
+    await page.goto(batchUrl)
+    await page.waitForLoadState('networkidle')
+    const reportDamageBtn = page.getByRole('button', { name: /report damage/i }).first()
+    await expect(reportDamageBtn).toBeVisible({ timeout: 8000 })
+    await reportDamageBtn.click()
+
+    // ReportIssuesSheet: h-10 w-10 buttons are the counter −/+ buttons
+    const issuesSheet = page.locator('[role="dialog"]')
+    await issuesSheet.waitFor({ timeout: 5000 })
+    const plusBtn = issuesSheet.locator('button.h-10.w-10').nth(1)
+    await expect(plusBtn).toBeVisible({ timeout: 3000 })
+    await plusBtn.click()
+    await issuesSheet.getByRole('button', { name: 'Save' }).click()
+    await issuesSheet.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {})
+
+    // Damage badge appears on item card
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByText(/1 damaged/i).first()).toBeVisible({ timeout: 8000 })
+
+    // ── 6. Close inspection ────────────────────────────────────────────
+    // "Close inspection" calls closeBatch() directly — no intermediate sheet
+    await page.getByRole('button', { name: 'Close inspection' }).click()
+    await expect(page.getByText('Closed').first()).toBeVisible({ timeout: 10000 })
+    await page.waitForLoadState('networkidle') // wait for router.refresh() soft-navigation to settle
+
+    // ── 7. Open a dispute on the item ─────────────────────────────────
+    await page.goto(batchUrl)
+    await page.waitForLoadState('networkidle')
+    const openDisputeBtn = page.getByRole('button', { name: /found damage.*open a dispute/i }).first()
+    await expect(openDisputeBtn).toBeVisible({ timeout: 8000 })
+    await openDisputeBtn.click()
+
+    // DisputeForm: increment "Damaged" counter
+    const disputeSheet = page.locator('[role="dialog"]')
+    await disputeSheet.waitFor({ timeout: 5000 })
+    const disputePlusBtn = disputeSheet.locator('button.h-9.w-9').nth(1)
+    await expect(disputePlusBtn).toBeVisible({ timeout: 3000 })
+    await disputePlusBtn.click()
+    await disputeSheet.getByRole('button', { name: 'Open dispute' }).click()
+    await disputeSheet.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {})
+
+    // Issues panel shows "Dispute open" badge
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByText('Dispute open').first()).toBeVisible({ timeout: 8000 })
+
+    // ── 8. Resolve the dispute ─────────────────────────────────────────
+    await page.getByRole('button', { name: /mark resolved/i }).first().click()
+    await expect(page.getByText(/resolved/i).first()).toBeVisible({ timeout: 8000 })
   })
 })
 
