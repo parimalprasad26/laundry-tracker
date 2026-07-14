@@ -20,17 +20,17 @@ export default async function HistoryPage({ searchParams }: Props) {
   const service = new BatchService(supabase)
   const { data: batches, hasMore, nextCursor } = await service.listPage({
     userId: user.id,
-    status: 'completed',
+    status: 'closed',
     cursor,
   })
 
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-semibold">History</h1>
-      <p className="text-sm text-muted-foreground">All completed laundry batches.</p>
+      <p className="text-sm text-muted-foreground">All closed laundry batches.</p>
 
       {batches.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-10">No completed batches yet.</p>
+        <p className="text-sm text-muted-foreground text-center py-10">No closed batches yet.</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {batches.map((batch) => (
