@@ -38,7 +38,7 @@ export function useBatchActions(
     }
 
     if (batch.status === 'closed') {
-      const closedAt = new Date(batch.closed_at!)
+      const closedAt = batch.closed_at ? new Date(batch.closed_at) : new Date()
       const disputeDeadline = addDays(closedAt, policy.dispute_window_days)
       const disputeExpired = isAfter(now, disputeDeadline)
       const daysLeft = disputeExpired ? 0 : Math.max(0, differenceInDays(disputeDeadline, now))

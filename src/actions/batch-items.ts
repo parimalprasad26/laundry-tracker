@@ -137,6 +137,17 @@ export async function reportBatchItemIssues(
     const reportability = await new InspectionPolicyService(supabase).isDamageReportable(batch, userId)
     if (!reportability.allowed) throw new Error(reportability.reason)
 
+    const { data: batchItem } = await supabase
+      .from('batch_items')
+      .select('quantity_returned')
+      .eq('id', itemId)
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (!batchItem) throw new Error('Item not found')
+    if (damagedQty > batchItem.quantity_returned) {
+      throw new Error(`Damaged quantity (${damagedQty}) cannot exceed returned quantity (${batchItem.quantity_returned})`)
+    }
+
     const item = await service.reportIssues(itemId, userId, damagedQty, missingQty, 'post_return')
 
     await new BatchStateMachineService(supabase).logEvent(batchId, userId, 'batch.damage_reported', {
