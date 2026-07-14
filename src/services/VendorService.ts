@@ -18,6 +18,13 @@ export class VendorService {
     return this.repo.findById(id)
   }
 
+  // Throws when the vendor doesn't exist or RLS hid it because the caller doesn't own it
+  async requireOwned(id: string): Promise<LaundryVendor> {
+    const vendor = await this.repo.findById(id)
+    if (!vendor) throw new Error('Vendor not found')
+    return vendor
+  }
+
   async create(userId: string, input: VendorFormValues): Promise<LaundryVendor> {
     const validated = vendorSchema.parse(input)
     return this.repo.create(userId, validated)

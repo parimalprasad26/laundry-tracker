@@ -54,9 +54,7 @@ export async function setVendorCustomTypePrice(
     const { data: { user }, error } = await supabase.auth.getUser()
     if (error || !user) throw new Error('Unauthorized')
 
-    const vendor = await new VendorService(supabase).getById(vendorId)
-    if (!vendor) throw new Error('Vendor not found')
-
+    await new VendorService(supabase).requireOwned(vendorId)
     await new BatchService(supabase).getEditable(batchId, user.id)
 
     const priceRepo = new VendorPriceRepository(supabase)
