@@ -88,6 +88,11 @@ export async function getBatchesForMonth(
 export async function deleteBatch(id: string): Promise<ActionResult> {
   try {
     const { service, userId } = await getAuthedService()
+    const batch = await service.getById(id)
+    if (!batch || batch.user_id !== userId) throw new Error('Batch not found')
+    if (batch.status !== 'draft' && batch.status !== 'closed') {
+      throw new Error(`Cannot delete a batch with status '${batch.status}'`)
+    }
     await service.delete(id, userId)
     updateTag('batches')
     return { success: true, data: undefined }
@@ -107,6 +112,7 @@ export async function reBatch(originalBatchId: string): Promise<ActionResult<{ i
 
     const original = await batchService.getById(originalBatchId)
     if (!original || original.user_id !== user.id) throw new Error('Batch not found')
+    if (original.status !== 'closed') throw new Error('Only closed batches can be re-batched')
 
     const originalItems = await itemService.getByBatch(originalBatchId)
 

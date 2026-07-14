@@ -30,6 +30,18 @@ export async function openDispute(
     const eligibility = await new InspectionPolicyService(supabase).isDisputeEligible(batch, userId)
     if (!eligibility.allowed) throw new Error(eligibility.reason)
 
+    const { data: batchItem } = await supabase
+      .from('batch_items')
+      .select('quantity_returned')
+      .eq('id', itemId)
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (!batchItem) throw new Error('Item not found')
+    if (batchItem.quantity_returned === 0) throw new Error('Cannot open a dispute on an item that was not collected')
+    if (damagedQty > batchItem.quantity_returned) {
+      throw new Error(`Damaged quantity (${damagedQty}) cannot exceed returned quantity (${batchItem.quantity_returned})`)
+    }
+
     const dispute = await new DisputeService(supabase).open(batchId, itemId, userId, {
       damaged_qty: damagedQty,
       description: description ?? null,
