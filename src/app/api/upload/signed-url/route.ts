@@ -21,6 +21,20 @@ export async function POST(request: NextRequest) {
 
   try {
     const input = signedUrlRequestSchema.parse(body)
+
+    const { data: item } = await supabase
+      .from('batch_items')
+      .select('id')
+      .eq('id', input.itemId)
+      .eq('batch_id', input.batchId)
+      .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (!item) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 403 })
+    }
+
     const storageService = new StorageService(supabase)
     const result = await storageService.createSignedUploadUrl(user.id, input)
     return NextResponse.json(result)
