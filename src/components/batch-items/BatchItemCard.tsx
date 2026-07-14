@@ -278,7 +278,7 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
         )}
 
         {/* Dispute button — visible on 'closed' status within dispute window */}
-        {batchStatus === 'closed' && actions.canOpenDispute && (
+        {batchStatus === 'closed' && actions.canOpenDispute && item.quantity_returned > 0 && (
           <button
             onClick={() => setDisputeOpen(true)}
             className="w-full flex items-center justify-center gap-2 rounded-xl py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-dashed border-border"

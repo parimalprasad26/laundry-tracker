@@ -114,10 +114,10 @@ export function DisputeForm({ item, open, onClose, onSaved }: Props) {
                   <p className={cn('text-sm font-semibold', damaged > 0 && 'text-amber-700 dark:text-amber-300')}>
                     Damaged
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">max {item.quantity_sent}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">max {item.quantity_returned}</p>
                 </div>
               </div>
-              <Counter value={damaged} max={item.quantity_sent} onChange={setDamaged} />
+              <Counter value={damaged} max={item.quantity_returned} onChange={setDamaged} />
             </div>
           </div>
 
