@@ -85,7 +85,8 @@ test.describe('Batch lifecycle (full flow)', () => {
     await page.waitForLoadState('networkidle')
     await page.getByRole('button', { name: 'Close inspection' }).click()
     await expect(page.getByText('Closed').first()).toBeVisible({ timeout: 10000 })
-    await page.waitForLoadState('networkidle') // wait for router.refresh() soft-navigation to settle
+    await page.waitForLoadState('networkidle') // wait for router.refresh() RSC fetch to finish
+    await page.waitForTimeout(500) // WebKit: extra buffer for history-state commit to settle
 
     // ── 6. Appears in history ──────────────────────────────────────────
     await page.goto('/history')
@@ -226,8 +227,7 @@ test.describe('Damage & dispute flow', () => {
     await page.waitForLoadState('networkidle') // wait for router.refresh() soft-navigation to settle
 
     // ── 7. Open a dispute on the item ─────────────────────────────────
-    await page.goto(batchUrl)
-    await page.waitForLoadState('networkidle')
+    // Already on batchUrl after close — no goto needed; dispute button appears once status is 'closed'
     const openDisputeBtn = page.getByRole('button', { name: /found damage.*open a dispute/i }).first()
     await expect(openDisputeBtn).toBeVisible({ timeout: 8000 })
     await openDisputeBtn.click()
