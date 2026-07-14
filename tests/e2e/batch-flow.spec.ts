@@ -219,11 +219,10 @@ test.describe('Damage & dispute flow', () => {
     await expect(page.getByText(/1 damaged/i).first()).toBeVisible({ timeout: 8000 })
 
     // ── 6. Close inspection ────────────────────────────────────────────
+    // "Close inspection" calls closeBatch() directly — no intermediate sheet
     await page.getByRole('button', { name: 'Close inspection' }).click()
-    const inspectionSheet = page.locator('[role="dialog"]')
-    await inspectionSheet.waitFor({ timeout: 5000 })
-    await inspectionSheet.getByRole('button', { name: /close.*finish.*all good/i }).click()
-    await expect(page.getByText('Closed').first()).toBeVisible({ timeout: 8000 })
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByText('Closed').first()).toBeVisible({ timeout: 10000 })
 
     // ── 7. Open a dispute on the item ─────────────────────────────────
     await page.goto(batchUrl)
