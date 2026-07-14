@@ -206,6 +206,11 @@ export interface VendorComparisonStats {
   missingRate: number | null
 }
 
+export interface MissingCustomPrice {
+  customType: string
+  batchItemIds: string[]
+}
+
 // ── Shared ────────────────────────────────────────────────────────────
 export interface CursorPage<T> {
   data: T[]
