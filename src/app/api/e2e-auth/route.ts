@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-// Only accessible in non-production environments
+// Blocked in production unless ALLOW_E2E_AUTH=true (set in CI only)
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_E2E_AUTH) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 

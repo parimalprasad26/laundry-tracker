@@ -29,6 +29,7 @@ jobs:
           echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .env.local
           echo "TEST_USER_EMAIL=${{ secrets.TEST_USER_EMAIL }}" >> .env.local
           echo "TEST_USER_PASSWORD=${{ secrets.TEST_USER_PASSWORD }}" >> .env.local
+          echo "ALLOW_E2E_AUTH=true" >> .env.local
 
       - name: Run E2E tests
         run: npx playwright test
