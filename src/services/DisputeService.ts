@@ -5,7 +5,6 @@ import type { BatchDispute, DisputeStatus } from '@/types'
 
 export interface DisputeClaim {
   damaged_qty: number
-  missing_qty: number
   description?: string | null
 }
 
@@ -33,7 +32,6 @@ export class DisputeService {
       batch_item_id: itemId,
       user_id: userId,
       damaged_qty: claim.damaged_qty,
-      missing_qty: claim.missing_qty,
       description: claim.description,
       dispute_type: 'damage',
     })
@@ -41,7 +39,6 @@ export class DisputeService {
       dispute_id: dispute.id,
       item_id: itemId,
       damaged_qty: claim.damaged_qty,
-      missing_qty: claim.missing_qty,
     })
     return dispute
   }
@@ -57,7 +54,6 @@ export class DisputeService {
       batch_item_id: itemId,
       user_id: userId,
       damaged_qty: 0,
-      missing_qty: 0,
       dispute_type: 'swap',
       wrong_item_description: claim.wrong_item_description,
     })

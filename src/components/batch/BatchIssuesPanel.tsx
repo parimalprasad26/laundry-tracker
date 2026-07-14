@@ -124,11 +124,6 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
                         <AlertTriangle className="h-3 w-3" />{dispute.damaged_qty} damaged
                       </span>
                     )}
-                    {dispute.missing_qty > 0 && (
-                      <span className="flex items-center gap-1 text-xs text-red-700 dark:text-red-400 font-medium">
-                        <PackageX className="h-3 w-3" />{dispute.missing_qty} missing
-                      </span>
-                    )}
                   </div>
                   {dispute.description && (
                     <div className="flex items-start gap-1 mt-1">

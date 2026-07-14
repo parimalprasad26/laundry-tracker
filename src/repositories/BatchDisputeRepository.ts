@@ -9,7 +9,6 @@ export class BatchDisputeRepository {
     batch_item_id: string
     user_id: string
     damaged_qty: number
-    missing_qty: number
     description?: string | null
     dispute_type?: DisputeType
     wrong_item_description?: string | null
