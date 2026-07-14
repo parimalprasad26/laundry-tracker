@@ -14,6 +14,16 @@ export class BatchService {
     return this.repo.findById(id)
   }
 
+  // Server-side enforcement of the "prices locked on returned/closed batches" rule (see CLAUDE.md)
+  async getEditable(id: string, userId: string): Promise<BatchWithStatus> {
+    const batch = await this.repo.findById(id)
+    if (!batch || batch.user_id !== userId) throw new Error('Batch not found')
+    if (batch.status === 'returned' || batch.status === 'closed') {
+      throw new Error(`Cannot modify a batch with status '${batch.status}'`)
+    }
+    return batch
+  }
+
   async listPage(params: {
     userId: string
     cursor?: string

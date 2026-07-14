@@ -69,8 +69,8 @@ export class BatchItemService {
     return { items, missingCustomPrices }
   }
 
-  async updateUnitPrice(id: string, userId: string, unitPrice: number | null): Promise<BatchItem> {
-    return this.repo.updateUnitPrice(id, userId, unitPrice)
+  async updateUnitPrice(id: string, userId: string, batchId: string, unitPrice: number | null): Promise<BatchItem> {
+    return this.repo.updateUnitPrice(id, userId, batchId, unitPrice)
   }
 
   async applyVendorPrices(batchId: string, userId: string, priceMap: Map<string, number>): Promise<number> {
@@ -82,7 +82,7 @@ export class BatchItemService {
     await Promise.all(
       toUpdate.map(i => {
         const key = priceKey(i.closet_item.type, i.closet_item.custom_type)
-        return this.repo.updateUnitPrice(i.id, userId, priceMap.get(key)!)
+        return this.repo.updateUnitPrice(i.id, userId, batchId, priceMap.get(key)!)
       })
     )
     return toUpdate.length

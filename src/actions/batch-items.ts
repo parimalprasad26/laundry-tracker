@@ -45,8 +45,9 @@ export async function updateBatchItemPrice(
   unitPrice: number | null
 ): Promise<ActionResult<BatchItem>> {
   try {
-    const { service, userId } = await getAuthedService()
-    const item = await service.updateUnitPrice(itemId, userId, unitPrice)
+    const { supabase, service, userId } = await getAuthedService()
+    await new BatchService(supabase).getEditable(batchId, userId)
+    const item = await service.updateUnitPrice(itemId, userId, batchId, unitPrice)
     updateTag(`batch-${batchId}`)
     return { success: true, data: item }
   } catch (e) {

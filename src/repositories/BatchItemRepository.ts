@@ -27,12 +27,13 @@ export class BatchItemRepository {
     return (data ?? []).map(r => r.closet_item_id)
   }
 
-  async updateUnitPrice(id: string, userId: string, unitPrice: number | null): Promise<BatchItem> {
+  async updateUnitPrice(id: string, userId: string, batchId: string, unitPrice: number | null): Promise<BatchItem> {
     const { data, error } = await this.supabase
       .from('batch_items')
       .update({ unit_price: unitPrice, updated_by: userId })
       .eq('id', id)
       .eq('user_id', userId)
+      .eq('batch_id', batchId)
       .select()
       .single()
 
