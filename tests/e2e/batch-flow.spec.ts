@@ -92,6 +92,65 @@ test.describe('Batch lifecycle (full flow)', () => {
   })
 })
 
+test.describe('Batch lifecycle (shortfall — item not returned)', () => {
+  test('collect with missing item → identify it → batch marked returned', async ({ page }) => {
+    const BATCH_NAME = `E2E Test Shortfall ${Date.now()}`
+
+    // ── 1. Create batch ────────────────────────────────────────────────
+    await page.goto('/batches/new')
+    await page.getByLabel('Batch name *').fill(BATCH_NAME)
+    await page.getByRole('button', { name: 'Create batch' }).click()
+    await page.waitForURL(/\/batches\/[0-9a-f-]{36}$/, { timeout: 10000 })
+
+    // ── 2. Add an item ─────────────────────────────────────────────────
+    await page.getByRole('button', { name: /add from closet/i }).click()
+    const sheet = page.locator('[role="dialog"]')
+    await sheet.waitFor({ timeout: 5000 })
+    const firstItem = sheet.locator('div.overflow-y-auto button[type="button"]:not([disabled])').first()
+    await expect(firstItem).toBeVisible({ timeout: 5000 })
+    await firstItem.click()
+    await page.waitForTimeout(300)
+    await sheet.getByRole('button', { name: /add \d+ item/i }).click()
+    await sheet.waitFor({ state: 'hidden', timeout: 8000 }).catch(() => {})
+    await expect(page.getByText(/Items \([1-9]\d*\)/)).toBeVisible({ timeout: 8000 })
+
+    // ── 3. Send to laundry ─────────────────────────────────────────────
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('button', { name: 'Send to laundry' }).click()
+    await expect(page.getByRole('button', { name: /pay on pickup/i })).toBeVisible({ timeout: 8000 })
+    await page.getByRole('button', { name: /pay on pickup/i }).click()
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByRole('button', { name: 'Collected' })).toBeVisible({ timeout: 10000 })
+
+    // ── 4. Collect with shortfall (0 items returned out of 1) ──────────
+    await page.getByRole('button', { name: 'Collected' }).click()
+
+    // Decrement count from 1 → 0 to create a shortfall of 1
+    const decrementBtn = page.getByRole('button', { name: '−' })
+    await expect(decrementBtn).toBeVisible({ timeout: 5000 })
+    await decrementBtn.click()
+
+    // "Next — identify 1 missing item" appears when shortfall > 0
+    const nextBtn = page.getByRole('button', { name: /next.*missing/i })
+    await expect(nextBtn).toBeVisible({ timeout: 3000 })
+    await nextBtn.click()
+
+    // ── 5. Step 2: identify the missing item ──────────────────────────
+    // "0 of 1 identified" badge is shown; click the item to mark it missing
+    await expect(page.getByText(/0 of 1 identified/i)).toBeVisible({ timeout: 3000 })
+    const missingItemBtn = page.getByRole('button', { name: /test shirt/i })
+    await expect(missingItemBtn).toBeVisible({ timeout: 3000 })
+    await missingItemBtn.click()
+
+    // Badge updates to "1 of 1 identified" and Confirm becomes enabled
+    await expect(page.getByText(/1 of 1 identified/i)).toBeVisible({ timeout: 3000 })
+    await page.getByRole('button', { name: /confirm collection/i }).click()
+
+    // ── 6. Batch is marked Returned despite shortfall ──────────────────
+    await expect(page.getByText('Returned').first()).toBeVisible({ timeout: 10000 })
+  })
+})
+
 test.describe('Settings', () => {
   test('inspection policy section is present and interactive', async ({ page }) => {
     await page.goto('/settings')
