@@ -9,7 +9,7 @@ import { BatchService } from '@/services/BatchService'
 import { InspectionPolicyService } from '@/services/InspectionPolicyService'
 import { BatchStateMachineService } from '@/services/BatchStateMachineService'
 import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
-import type { ActionResult, BatchItem } from '@/types'
+import type { ActionResult, BatchItem, MissingCustomPrice } from '@/types'
 
 async function getAuthedService() {
   const supabase = await createClient()
@@ -21,20 +21,19 @@ async function getAuthedService() {
 export async function addItemsToBatch(
   batchId: string,
   closetItemIds: string[]
-): Promise<ActionResult<BatchItem[]>> {
+): Promise<ActionResult<{ items: BatchItem[]; missingCustomPrices: MissingCustomPrice[] }>> {
   try {
     const { supabase, service, userId } = await getAuthedService()
 
     const batch = await new BatchService(supabase).getById(batchId)
-    let priceMap = new Map()
-    if (batch?.vendor_id) {
-      priceMap = await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id, userId)
-    }
+    const priceMap = batch?.vendor_id
+      ? await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id, userId)
+      : undefined
 
-    const items = await service.addItems(batchId, userId, closetItemIds, priceMap)
+    const { items, missingCustomPrices } = await service.addItems(batchId, userId, closetItemIds, priceMap)
     updateTag(`batch-${batchId}`)
     updateTag('batches')
-    return { success: true, data: items }
+    return { success: true, data: { items, missingCustomPrices } }
   } catch (e) {
     return handleActionError(e)
   }

@@ -150,7 +150,13 @@ export default async function BatchDetailPage({ params }: Props) {
       {/* Items header */}
       <div className="flex items-center justify-between">
         <h2 className="font-medium">Items ({batchItems.length})</h2>
-        <AddFromClosetButton batchId={id} existingClosetItemIds={existingClosetItemIds} batchStatus={batch.status} />
+        <AddFromClosetButton
+          batchId={id}
+          existingClosetItemIds={existingClosetItemIds}
+          batchStatus={batch.status}
+          vendorId={batch.vendor_id}
+          vendorName={batch.vendor_name}
+        />
       </div>
 
       {batchItems.length === 0 ? (

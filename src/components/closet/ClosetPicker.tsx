@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Shirt, Check, Plus, Loader2 } from 'lucide-react'
-import type { ClosetItem } from '@/types'
+import type { ClosetItem, MissingCustomPrice } from '@/types'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -20,11 +20,12 @@ interface Props {
   existingClosetItemIds: string[]
   open: boolean
   onClose: () => void
+  onMissingPrices?: (missing: MissingCustomPrice[]) => void
 }
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
-export function ClosetPicker({ batchId, existingClosetItemIds, open, onClose }: Props) {
+export function ClosetPicker({ batchId, existingClosetItemIds, open, onClose, onMissingPrices }: Props) {
   const router = useRouter()
   const [items, setItems] = useState<ClosetItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -62,8 +63,13 @@ export function ClosetPicker({ batchId, existingClosetItemIds, open, onClose }: 
       const result = await addItemsToBatch(batchId, [...selected])
       if (result.success) {
         toast.success(`${selected.size} item${selected.size > 1 ? 's' : ''} added to batch`)
-        router.refresh()
-        onClose()
+        if (result.data.missingCustomPrices.length > 0 && onMissingPrices) {
+          onClose()
+          onMissingPrices(result.data.missingCustomPrices)
+        } else {
+          router.refresh()
+          onClose()
+        }
       } else {
         toast.error(result.error)
       }

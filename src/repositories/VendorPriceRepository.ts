@@ -39,6 +39,20 @@ export class VendorPriceRepository {
     return map
   }
 
+  async upsertOne(vendorId: string, userId: string, entry: VendorPriceEntry): Promise<void> {
+    const { error } = await this.supabase
+      .from('vendor_item_prices')
+      .upsert({
+        vendor_id: vendorId,
+        user_id: userId,
+        item_type: entry.item_type,
+        custom_type: entry.custom_type ?? null,
+        unit_price: entry.unit_price,
+        updated_by: userId,
+      }, { onConflict: 'vendor_id,item_type,custom_type', ignoreDuplicates: false })
+    if (error) throw error
+  }
+
   async replaceAll(vendorId: string, userId: string, prices: VendorPriceEntry[]): Promise<void> {
     const { error: delErr } = await this.supabase
       .from('vendor_item_prices')

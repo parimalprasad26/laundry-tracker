@@ -63,6 +63,15 @@ export class BatchItemRepository {
     return data ?? []
   }
 
+  async bulkUpdateUnitPrice(ids: string[], userId: string, price: number): Promise<void> {
+    const { error } = await this.supabase
+      .from('batch_items')
+      .update({ unit_price: price, updated_by: userId })
+      .in('id', ids)
+      .eq('user_id', userId)
+    if (error) throw error
+  }
+
   async updateIssues(
     id: string,
     userId: string,

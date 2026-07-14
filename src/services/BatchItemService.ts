@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
 import { ClosetRepository } from '@/repositories/ClosetRepository'
 import { priceKey } from '@/lib/item-type'
-import type { BatchItem, BatchItemWithClosetItem, ItemType } from '@/types'
+import type { BatchItem, BatchItemWithClosetItem, ClosetItem, MissingCustomPrice } from '@/types'
 
 export class BatchItemService {
   private repo: BatchItemRepository
@@ -25,27 +25,48 @@ export class BatchItemService {
     batchId: string,
     userId: string,
     closetItemIds: string[],
-    priceMap?: Map<string, number>
-  ): Promise<BatchItem[]> {
-    if (!closetItemIds.length) return []
+    priceMap?: Map<string, number>  // undefined = no vendor; empty Map = vendor with no prices
+  ): Promise<{ items: BatchItem[]; missingCustomPrices: MissingCustomPrice[] }> {
+    if (!closetItemIds.length) return { items: [], missingCustomPrices: [] }
 
-    let items: Array<{ closet_item_id: string; unit_price: number | null }>
+    let itemInputs: Array<{ closet_item_id: string; unit_price: number | null }>
+    let closetItemsById = new Map<string, ClosetItem>()
 
-    if (priceMap && priceMap.size > 0) {
+    if (priceMap !== undefined) {
+      // Vendor exists — fetch closet items to resolve types and detect missing custom prices
       const closetItems = await this.closetRepo.findManyByIds(closetItemIds, userId)
-      const byId = new Map(closetItems.map(ci => [ci.id, ci]))
-      items = closetItemIds.map(id => {
-        const ci = byId.get(id)
+      closetItemsById = new Map(closetItems.map(ci => [ci.id, ci]))
+      itemInputs = closetItemIds.map(id => {
+        const ci = closetItemsById.get(id)
         return {
           closet_item_id: id,
           unit_price: ci ? (priceMap.get(priceKey(ci.type, ci.custom_type)) ?? null) : null,
         }
       })
     } else {
-      items = closetItemIds.map(id => ({ closet_item_id: id, unit_price: null }))
+      itemInputs = closetItemIds.map(id => ({ closet_item_id: id, unit_price: null }))
     }
 
-    return this.repo.bulkCreate(batchId, userId, items)
+    const items = await this.repo.bulkCreate(batchId, userId, itemInputs)
+
+    // Detect custom-type items that got no vendor price
+    const missingCustomPrices: MissingCustomPrice[] = []
+    if (priceMap !== undefined && closetItemsById.size > 0) {
+      const missingMap = new Map<string, string[]>()
+      for (const item of items) {
+        if (item.unit_price !== null) continue
+        const ci = closetItemsById.get(item.closet_item_id)
+        if (!ci || ci.type !== 'other' || !ci.custom_type) continue
+        const ids = missingMap.get(ci.custom_type) ?? []
+        ids.push(item.id)
+        missingMap.set(ci.custom_type, ids)
+      }
+      for (const [customType, batchItemIds] of missingMap) {
+        missingCustomPrices.push({ customType, batchItemIds })
+      }
+    }
+
+    return { items, missingCustomPrices }
   }
 
   async updateUnitPrice(id: string, userId: string, unitPrice: number | null): Promise<BatchItem> {
