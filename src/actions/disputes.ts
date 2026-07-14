@@ -19,7 +19,6 @@ export async function openDispute(
   batchId: string,
   itemId: string,
   damagedQty: number,
-  missingQty: number,
   description?: string
 ): Promise<ActionResult<BatchDispute>> {
   try {
@@ -33,7 +32,6 @@ export async function openDispute(
 
     const dispute = await new DisputeService(supabase).open(batchId, itemId, userId, {
       damaged_qty: damagedQty,
-      missing_qty: missingQty,
       description: description ?? null,
     })
 

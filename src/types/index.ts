@@ -99,7 +99,6 @@ export interface BatchDispute {
   user_id: string
   reported_at: string
   damaged_qty: number
-  missing_qty: number
   description: string | null
   dispute_type: DisputeType
   wrong_item_description: string | null
