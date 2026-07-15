@@ -60,6 +60,8 @@ CRON_SECRET=
 
 Migrations live in `supabase/migrations/`. Apply them in order via the Supabase dashboard or CLI.
 
+Local dev and Vercel Preview deployments point at a separate `laundry-tracker-dev` Supabase project, kept schema-identical to production via the same migrations — decouples day-to-day dev/test traffic from real production data.
+
 ## Documentation
 
 - `FLOW.md` — full user flow and all feature combinations in plain language
