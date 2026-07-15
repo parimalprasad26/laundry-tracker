@@ -37,19 +37,28 @@ export async function GET(request: Request) {
   try {
     const batches = await batchRepo.findReadyToAutoClose()
 
-    for (const batch of batches) {
-      if (dryRun) {
-        closed++
-        continue
-      }
-      try {
-        await stateMachine.autoCloseBatch(batch.id, batch.user_id)
-        closed++
-        const existing = closedByUser.get(batch.user_id) ?? []
-        closedByUser.set(batch.user_id, [...existing, batch])
-      } catch (err) {
-        errors++
-        Sentry.captureException(err, { extra: { batchId: batch.id, userId: batch.user_id } })
+    if (dryRun) {
+      closed = batches.length
+    } else {
+      // Bounded concurrency: process CHUNK_SIZE batches at a time instead of one at a
+      // time, so a large backlog uses the function's time budget more efficiently
+      // without opening one connection per batch simultaneously.
+      const CHUNK_SIZE = 10
+      for (let i = 0; i < batches.length; i += CHUNK_SIZE) {
+        const chunk = batches.slice(i, i + CHUNK_SIZE)
+        await Promise.all(
+          chunk.map(async batch => {
+            try {
+              await stateMachine.autoCloseBatch(batch.id, batch.user_id)
+              closed++
+              const existing = closedByUser.get(batch.user_id) ?? []
+              closedByUser.set(batch.user_id, [...existing, batch])
+            } catch (err) {
+              errors++
+              Sentry.captureException(err, { extra: { batchId: batch.id, userId: batch.user_id } })
+            }
+          })
+        )
       }
     }
   } catch (err) {
