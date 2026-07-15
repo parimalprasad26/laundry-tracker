@@ -67,13 +67,14 @@ export class DisputeService {
 
   async resolve(
     disputeId: string,
-    batchId: string,
     userId: string,
     resolution: string,
     status: DisputeStatus = 'resolved'
   ): Promise<BatchDispute> {
     const dispute = await this.repo.resolve(disputeId, userId, resolution, status)
-    await this.stateMachine.logEvent(batchId, userId, 'batch.dispute_resolved', {
+    // Log the event against the dispute's own batch_id, not a client-supplied one —
+    // the repo update is scoped by disputeId+userId, so this is the verified source of truth.
+    await this.stateMachine.logEvent(dispute.batch_id, userId, 'batch.dispute_resolved', {
       dispute_id: disputeId,
       resolution,
       status,
