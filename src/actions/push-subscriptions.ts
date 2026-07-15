@@ -4,6 +4,7 @@ import { handleActionError } from '@/lib/handle-error'
 
 import { createClient } from '@/lib/supabase/server'
 import { PushSubscriptionRepository } from '@/repositories/PushSubscriptionRepository'
+import { pushSubscriptionSchema } from '@/schemas/push-subscription.schema'
 import type { ActionResult } from '@/types'
 
 async function getAuthedRepo() {
@@ -21,12 +22,13 @@ export async function subscribeToPush(
   authKey: string
 ): Promise<ActionResult> {
   try {
+    const validated = pushSubscriptionSchema.parse({ endpoint, p256dh, authKey })
     const { repo, userId } = await getAuthedRepo()
     const count = await repo.countForUser(userId)
     if (count >= MAX_SUBSCRIPTIONS_PER_USER) {
       return { success: false, error: 'Too many push subscriptions. Unsubscribe on another device first.' }
     }
-    await repo.save(userId, endpoint, p256dh, authKey)
+    await repo.save(userId, validated.endpoint, validated.p256dh, validated.authKey)
     return { success: true, data: undefined }
   } catch (e) {
     return handleActionError(e)
