@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Content-Security-Policy is set per-request in src/proxy.ts instead of here, since it
+  // needs a fresh nonce on every request — a static header here would send a second CSP
+  // header alongside proxy.ts's, and browsers enforce the intersection of multiple
+  // Content-Security-Policy headers, which would fight with the nonce-based policy.
   headers: async () => [
     {
       source: '/(.*)',
@@ -25,19 +29,6 @@ const nextConfig: NextConfig = {
         {
           key: 'Permissions-Policy',
           value: 'camera=(self), microphone=(), geolocation=()',
-        },
-        {
-          key: 'Content-Security-Policy',
-          value: [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
-            "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com",
-            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://app.posthog.com https://*.ingest.us.sentry.io",
-            "media-src 'self' blob:",
-            "worker-src 'self' blob:",
-            "frame-ancestors 'none'",
-          ].join('; '),
         },
       ],
     },
