@@ -99,7 +99,7 @@ export class BatchItemRepository {
     return data
   }
 
-  async updateReturnQuantity(id: string, userId: string, quantityReturned: number): Promise<BatchItem> {
+  async updateReturnQuantity(id: string, userId: string, batchId: string, quantityReturned: number): Promise<BatchItem> {
     const { data, error } = await this.supabase
       .from('batch_items')
       .update({
@@ -109,6 +109,7 @@ export class BatchItemRepository {
       })
       .eq('id', id)
       .eq('user_id', userId)
+      .eq('batch_id', batchId)
       .select()
       .single()
 
@@ -117,36 +118,20 @@ export class BatchItemRepository {
   }
 
   async markAllReturned(batchId: string, userId: string): Promise<void> {
-    const items = await this.findByBatch(batchId)
-    const now = new Date().toISOString()
-    await Promise.all(
-      items
-        .filter(i => i.quantity_returned < i.quantity_sent)
-        .map(i =>
-          this.supabase
-            .from('batch_items')
-            .update({ quantity_returned: i.quantity_sent, returned_at: now, updated_by: userId })
-            .eq('id', i.id)
-            .eq('user_id', userId)
-        )
-    )
+    const { error } = await this.supabase.rpc('mark_batch_items_returned', {
+      p_batch_id: batchId,
+      p_user_id: userId,
+    })
+    if (error) throw error
   }
 
   async markSelectivelyReturned(batchId: string, userId: string, missingItemIds: string[]): Promise<void> {
-    const items = await this.findByBatch(batchId)
-    const missingSet = new Set(missingItemIds)
-    const now = new Date().toISOString()
-    await Promise.all(
-      items
-        .filter(i => !missingSet.has(i.id))
-        .map(i =>
-          this.supabase
-            .from('batch_items')
-            .update({ quantity_returned: i.quantity_sent, returned_at: now, updated_by: userId })
-            .eq('id', i.id)
-            .eq('user_id', userId)
-        )
-    )
+    const { error } = await this.supabase.rpc('mark_batch_items_returned', {
+      p_batch_id: batchId,
+      p_user_id: userId,
+      p_excluded_ids: missingItemIds,
+    })
+    if (error) throw error
   }
 
   async softDelete(id: string, userId: string): Promise<void> {

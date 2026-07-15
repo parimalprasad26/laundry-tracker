@@ -31,6 +31,11 @@ export async function createBatch(input: BatchFormValues): Promise<ActionResult<
 export async function updateBatch(id: string, input: Partial<BatchFormValues>): Promise<ActionResult<BatchWithStatus>> {
   try {
     const { service, userId } = await getAuthedService()
+    // Not currently reachable from any UI (BatchForm is only ever rendered in create mode),
+    // but it's still a callable action that can rewrite any field — including actual_cost,
+    // payment_status, and the lifecycle dates — bypassing the narrower guards those specific
+    // fields get elsewhere. getEditable closes that gap even though nothing exercises it today.
+    await service.getEditable(id, userId)
     const batch = await service.update(id, userId, input)
     updateTag('batches')
     updateTag(`batch-${id}`)
@@ -43,6 +48,9 @@ export async function updateBatch(id: string, input: Partial<BatchFormValues>): 
 export async function markBatchSent(id: string): Promise<ActionResult<BatchWithStatus>> {
   try {
     const { service, userId } = await getAuthedService()
+    const existing = await service.getById(id)
+    if (!existing || existing.user_id !== userId) throw new Error('Batch not found')
+    if (existing.status !== 'draft') throw new Error(`Cannot send a batch with status '${existing.status}'`)
     const batch = await service.markSent(id, userId)
     updateTag('batches')
     updateTag(`batch-${id}`)
@@ -59,6 +67,14 @@ export async function recordBatchPayment(
 ): Promise<ActionResult<BatchWithStatus>> {
   try {
     const { service, userId } = await getAuthedService()
+    const existing = await service.getById(id)
+    if (!existing || existing.user_id !== userId) throw new Error('Batch not found')
+    // Payment is recorded at one of two points per the documented flow: upfront right
+    // after sending (in_laundry), or automatically once everything's back (returned).
+    // Not draft (nothing sent yet) and not closed (should already be resolved by then).
+    if (existing.status !== 'in_laundry' && existing.status !== 'returned') {
+      throw new Error(`Cannot record payment on a batch with status '${existing.status}'`)
+    }
     const batch = await service.update(id, userId, {
       actual_cost: actualCost,
       payment_status: 'paid',
