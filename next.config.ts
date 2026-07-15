@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import { withSentryConfig } from '@sentry/nextjs'
 
 const nextConfig: NextConfig = {
   images: {
@@ -32,7 +33,7 @@ const nextConfig: NextConfig = {
             "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com",
-            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://app.posthog.com",
+            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://app.posthog.com https://*.ingest.us.sentry.io",
             "media-src 'self' blob:",
             "worker-src 'self' blob:",
             "frame-ancestors 'none'",
@@ -43,4 +44,10 @@ const nextConfig: NextConfig = {
   ],
 }
 
-export default nextConfig
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  silent: !process.env.CI,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  widenClientFileUpload: true,
+})

@@ -25,8 +25,8 @@ export async function addItemsToBatch(
   try {
     const { supabase, service, userId } = await getAuthedService()
 
-    const batch = await new BatchService(supabase).getById(batchId)
-    const priceMap = batch?.vendor_id
+    const batch = await new BatchService(supabase).getEditable(batchId, userId)
+    const priceMap = batch.vendor_id
       ? await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id, userId)
       : undefined
 

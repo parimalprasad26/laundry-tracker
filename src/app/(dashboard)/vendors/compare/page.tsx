@@ -14,7 +14,7 @@ export default async function VendorComparePage() {
 
   const [vendors, statsMap] = await Promise.all([
     new VendorService(supabase).list(user.id),
-    new BatchRepository(supabase).getVendorComparisonStats(user.id),
+    new BatchRepository(supabase).getVendorComparisonStats(),
   ])
 
   const rows = vendors.map(v => ({
