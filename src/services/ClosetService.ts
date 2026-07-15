@@ -1,13 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ClosetRepository } from '@/repositories/ClosetRepository'
+import { StorageService } from '@/services/StorageService'
 import { closetItemSchema, type ClosetItemFormValues } from '@/schemas/closet.schema'
 import type { ClosetItem } from '@/types'
 
 export class ClosetService {
   private repo: ClosetRepository
+  private storage: StorageService
 
   constructor(supabase: SupabaseClient) {
     this.repo = new ClosetRepository(supabase)
+    this.storage = new StorageService(supabase)
   }
 
   async list(userId: string): Promise<ClosetItem[]> {
@@ -43,7 +46,13 @@ export class ClosetService {
   }
 
   async delete(id: string, userId: string): Promise<void> {
+    const item = await this.repo.findById(id)
     await this.repo.softDelete(id, userId)
+    // Best-effort: the item is already correctly marked deleted regardless of whether
+    // this succeeds, so a storage hiccup here shouldn't surface as a failed delete.
+    if (item?.primary_image_path) {
+      await this.storage.deleteFile(item.primary_image_path).catch(() => {})
+    }
   }
 
   async countWashed(id: string): Promise<number> {
