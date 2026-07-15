@@ -9,6 +9,7 @@ import { VendorService } from '@/services/VendorService'
 import { BatchService } from '@/services/BatchService'
 import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
+import { customTypePriceEntriesSchema } from '@/schemas/vendor-price.schema'
 import type { VendorItemPrice, ActionResult } from '@/types'
 import type { VendorPriceEntry } from '@/repositories/VendorPriceRepository'
 
@@ -57,12 +58,13 @@ export async function setVendorCustomTypePrice(
 
     await new VendorService(supabase).requireOwned(vendorId)
     await new BatchService(supabase).getEditable(batchId, user.id)
+    const validatedEntries = customTypePriceEntriesSchema.parse(entries)
 
     const priceRepo = new VendorPriceRepository(supabase)
     const itemRepo = new BatchItemRepository(supabase)
 
     await Promise.all(
-      entries.flatMap(({ customType, price, batchItemIds }) => [
+      validatedEntries.flatMap(({ customType, price, batchItemIds }) => [
         priceRepo.upsertOne(vendorId, user.id, { item_type: 'other', custom_type: customType, unit_price: price }),
         itemRepo.bulkUpdateUnitPrice(batchItemIds, user.id, batchId, price),
       ])

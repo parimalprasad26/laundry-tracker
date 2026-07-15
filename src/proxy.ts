@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 
-const PUBLIC_PATHS = ['/login', '/auth/callback', '/api/auth', '/api/cron', '/api/e2e-auth', '/terms', '/privacy']
+const PUBLIC_PATHS = ['/login', '/auth/callback', '/api/auth', '/api/cron', '/api/e2e-auth', '/api/health', '/terms', '/privacy']
 
 // script-src uses a per-request nonce + 'strict-dynamic' instead of 'unsafe-inline'/'unsafe-eval',
 // so an injected <script> tag can no longer execute even if it slips past other defenses.

@@ -62,7 +62,7 @@ export async function setBatchItemReturned(
 ): Promise<ActionResult<BatchItem>> {
   try {
     const { supabase, service, userId } = await getAuthedService()
-    const item = await service.setReturnedQuantity(itemId, userId, quantity)
+    const item = await service.setReturnedQuantity(itemId, userId, batchId, quantity)
     const batchService = new BatchService(supabase)
 
     if (quantity < item.quantity_sent) {
@@ -108,8 +108,8 @@ export async function markAllBatchItemsReturned(batchId: string): Promise<Action
 export async function applyVendorPricesToBatch(batchId: string): Promise<ActionResult<{ applied: number }>> {
   try {
     const { supabase, service, userId } = await getAuthedService()
-    const batch = await new BatchService(supabase).getById(batchId)
-    if (!batch?.vendor_id) return { success: false, error: 'Batch has no vendor' }
+    const batch = await new BatchService(supabase).getEditable(batchId, userId)
+    if (!batch.vendor_id) return { success: false, error: 'Batch has no vendor' }
 
     const priceMap = await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id, userId)
     if (!priceMap.size) return { success: false, error: 'Vendor has no prices set' }

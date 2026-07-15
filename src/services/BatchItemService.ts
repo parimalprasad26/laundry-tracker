@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
 import { ClosetRepository } from '@/repositories/ClosetRepository'
 import { priceKey } from '@/lib/item-type'
+import { batchItemIssueSchema } from '@/schemas/batch-item-issue.schema'
 import type { BatchItem, BatchItemWithClosetItem, ClosetItem, MissingCustomPrice } from '@/types'
 
 export class BatchItemService {
@@ -95,11 +96,12 @@ export class BatchItemService {
     missingQty: number,
     issueStatus: 'post_return' | 'dispute' = 'post_return'
   ): Promise<BatchItem> {
-    return this.repo.updateIssues(id, userId, damagedQty, missingQty, issueStatus)
+    const validated = batchItemIssueSchema.parse({ damagedQty, missingQty })
+    return this.repo.updateIssues(id, userId, validated.damagedQty, validated.missingQty, issueStatus)
   }
 
-  async setReturnedQuantity(id: string, userId: string, quantity: number): Promise<BatchItem> {
-    return this.repo.updateReturnQuantity(id, userId, quantity)
+  async setReturnedQuantity(id: string, userId: string, batchId: string, quantity: number): Promise<BatchItem> {
+    return this.repo.updateReturnQuantity(id, userId, batchId, quantity)
   }
 
   async markAllReturned(batchId: string, userId: string): Promise<void> {

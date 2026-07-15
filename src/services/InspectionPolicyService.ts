@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { InspectionPolicyRepository } from '@/repositories/InspectionPolicyRepository'
+import { inspectionPolicySchema } from '@/schemas/inspection-policy.schema'
 import type { BatchWithStatus, InspectionPolicy } from '@/types'
 import { addDays, isAfter } from 'date-fns'
 
@@ -31,7 +32,8 @@ export class InspectionPolicyService {
     userId: string,
     fields: Partial<Omit<InspectionPolicy, 'user_id' | 'updated_at'>>
   ): Promise<InspectionPolicy> {
-    return this.repo.save(userId, fields)
+    const validated = inspectionPolicySchema.parse(fields)
+    return this.repo.save(userId, validated)
   }
 
   async isDamageReportable(

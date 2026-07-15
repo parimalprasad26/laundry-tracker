@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { VendorPriceRepository, type VendorPriceEntry } from '@/repositories/VendorPriceRepository'
+import { vendorPriceEntriesSchema } from '@/schemas/vendor-price.schema'
 import type { VendorItemPrice } from '@/types'
 
 export class VendorPriceService {
@@ -22,6 +23,7 @@ export class VendorPriceService {
   }
 
   async save(vendorId: string, userId: string, prices: VendorPriceEntry[]): Promise<void> {
-    await this.repo.replaceAll(vendorId, userId, prices)
+    const validated = vendorPriceEntriesSchema.parse(prices)
+    await this.repo.replaceAll(vendorId, userId, validated)
   }
 }

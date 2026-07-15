@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { BatchDisputeRepository } from '@/repositories/BatchDisputeRepository'
 import { BatchStateMachineService } from './BatchStateMachineService'
+import { disputeClaimSchema, swapClaimSchema, disputeResolutionSchema } from '@/schemas/dispute.schema'
 import type { BatchDispute, DisputeStatus } from '@/types'
 
 export interface DisputeClaim {
@@ -27,18 +28,19 @@ export class DisputeService {
     userId: string,
     claim: DisputeClaim
   ): Promise<BatchDispute> {
+    const validated = disputeClaimSchema.parse(claim)
     const dispute = await this.repo.create({
       batch_id: batchId,
       batch_item_id: itemId,
       user_id: userId,
-      damaged_qty: claim.damaged_qty,
-      description: claim.description,
+      damaged_qty: validated.damaged_qty,
+      description: validated.description,
       dispute_type: 'damage',
     })
     await this.stateMachine.logEvent(batchId, userId, 'batch.dispute_opened', {
       dispute_id: dispute.id,
       item_id: itemId,
-      damaged_qty: claim.damaged_qty,
+      damaged_qty: validated.damaged_qty,
     })
     return dispute
   }
@@ -49,13 +51,14 @@ export class DisputeService {
     userId: string,
     claim: SwapClaim
   ): Promise<BatchDispute> {
+    const validated = swapClaimSchema.parse(claim)
     const dispute = await this.repo.create({
       batch_id: batchId,
       batch_item_id: itemId,
       user_id: userId,
       damaged_qty: 0,
       dispute_type: 'swap',
-      wrong_item_description: claim.wrong_item_description,
+      wrong_item_description: validated.wrong_item_description,
     })
     await this.stateMachine.logEvent(batchId, userId, 'batch.dispute_opened', {
       dispute_id: dispute.id,
@@ -71,7 +74,8 @@ export class DisputeService {
     resolution: string,
     status: DisputeStatus = 'resolved'
   ): Promise<BatchDispute> {
-    const dispute = await this.repo.resolve(disputeId, userId, resolution, status)
+    const validated = disputeResolutionSchema.parse({ resolution })
+    const dispute = await this.repo.resolve(disputeId, userId, validated.resolution, status)
     // Log the event against the dispute's own batch_id, not a client-supplied one —
     // the repo update is scoped by disputeId+userId, so this is the verified source of truth.
     await this.stateMachine.logEvent(dispute.batch_id, userId, 'batch.dispute_resolved', {

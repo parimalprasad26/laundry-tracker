@@ -106,7 +106,7 @@ export async function GET(request: Request) {
   const duration_ms = Date.now() - startedAt
 
   try {
-    await admin.from('cron_logs').insert({ sent: closed, skipped: 0, errors, duration_ms, dry_run: dryRun })
+    await admin.from('cron_logs').insert({ job_name: 'auto-close', sent: closed, skipped: 0, errors, duration_ms, dry_run: dryRun })
   } catch (err) {
     Sentry.captureException(err, { extra: { context: 'cron_log_write' } })
   }

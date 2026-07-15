@@ -6,12 +6,14 @@ export class VendorRepository {
   constructor(private supabase: SupabaseClient) {}
 
   async findAll(userId: string): Promise<LaundryVendor[]> {
+    // Defensive cap, not real pagination — see ClosetRepository.findAll for the same reasoning.
     const { data, error } = await this.supabase
       .from('laundry_vendors')
       .select('*')
       .eq('user_id', userId)
       .is('deleted_at', null)
       .order('name', { ascending: true })
+      .limit(1000)
 
     if (error) throw error
     return data ?? []

@@ -60,6 +60,19 @@ describe('BatchItemService.updateUnitPrice', () => {
   })
 })
 
+describe('BatchItemService.setReturnedQuantity', () => {
+  it('passes batchId through to the repository so a mismatched itemId/batchId pair cannot touch a different batch', async () => {
+    const service = makeService()
+    const repoUpdate = vi.fn().mockResolvedValue({} as BatchItem)
+    // @ts-expect-error — patching private repo for test
+    service.repo.updateReturnQuantity = repoUpdate
+
+    await service.setReturnedQuantity('item-1', 'user-1', 'batch-1', 3)
+
+    expect(repoUpdate).toHaveBeenCalledWith('item-1', 'user-1', 'batch-1', 3)
+  })
+})
+
 describe('BatchItemService.applyVendorPrices', () => {
   it('scopes every bulk price update to the batch it was called with', async () => {
     const service = makeService()

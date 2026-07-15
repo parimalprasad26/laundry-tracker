@@ -118,7 +118,7 @@ export async function GET(request: Request) {
 
   // Persist run log (best-effort — never fail the cron if logging fails)
   try {
-    await admin.from('cron_logs').insert({ sent, skipped, errors, duration_ms, dry_run: dryRun })
+    await admin.from('cron_logs').insert({ job_name: 'send-reminders', sent, skipped, errors, duration_ms, dry_run: dryRun })
   } catch (err) {
     Sentry.captureException(err, { extra: { context: 'cron_log_write' } })
   }
