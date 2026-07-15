@@ -24,25 +24,48 @@ export default async function globalTeardown() {
     .eq('user_id', user.id)
     .like('name', 'E2E Test%')
 
-  if (!batches?.length) {
-    console.log('✓ teardown: nothing to clean up')
-    return
+  if (batches?.length) {
+    const batchIds = batches.map(b => b.id)
+
+    // batch_items has no CASCADE so delete explicitly first
+    await supabase.from('batch_items').delete().in('batch_id', batchIds)
+
+    // Deleting batches cascades to disputes, swaps, and other dependent rows
+    const { error: batchErr } = await supabase
+      .from('laundry_batches')
+      .delete()
+      .in('id', batchIds)
+
+    if (batchErr) {
+      console.warn('⚠ teardown: batch cleanup failed:', batchErr.message)
+    } else {
+      console.log(`✓ teardown: removed ${batchIds.length} e2e test batch(es)`)
+    }
   }
 
-  const batchIds = batches.map(b => b.id)
+  // Closet items created by closet-quick-add.spec.ts (name prefix "E2E Shirt "/"E2E Pants ").
+  // Left uncleaned, these accumulate and — since findAll orders newest-first — shift ahead of
+  // the seeded "Test Shirt" fixture in ClosetPicker's ordering, breaking tests that rely on it.
+  const { data: closetItems } = await supabase
+    .from('closet_items')
+    .select('id')
+    .eq('user_id', user.id)
+    .like('name', 'E2E %')
 
-  // batch_items has no CASCADE so delete explicitly first
-  await supabase.from('batch_items').delete().in('batch_id', batchIds)
+  if (closetItems?.length) {
+    const { error: closetErr } = await supabase
+      .from('closet_items')
+      .delete()
+      .in('id', closetItems.map(i => i.id))
 
-  // Deleting batches cascades to disputes, swaps, and other dependent rows
-  const { error: batchErr } = await supabase
-    .from('laundry_batches')
-    .delete()
-    .in('id', batchIds)
+    if (closetErr) {
+      console.warn('⚠ teardown: closet item cleanup failed:', closetErr.message)
+    } else {
+      console.log(`✓ teardown: removed ${closetItems.length} e2e test closet item(s)`)
+    }
+  }
 
-  if (batchErr) {
-    console.warn('⚠ teardown: batch cleanup failed:', batchErr.message)
-  } else {
-    console.log(`✓ teardown: removed ${batchIds.length} e2e test batch(es)`)
+  if (!batches?.length && !closetItems?.length) {
+    console.log('✓ teardown: nothing to clean up')
   }
 }

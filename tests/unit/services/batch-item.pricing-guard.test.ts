@@ -13,6 +13,7 @@ function makeBatchItem(overrides: Partial<BatchItemWithClosetItem> = {}): BatchI
     brand: null,
     notes: null,
     primary_image_path: null,
+    photo_status: 'none',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     created_by: 'user-1',
