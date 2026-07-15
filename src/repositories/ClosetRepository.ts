@@ -6,12 +6,16 @@ export class ClosetRepository {
   constructor(private supabase: SupabaseClient) {}
 
   async findAll(userId: string): Promise<ClosetItem[]> {
+    // Defensive cap, not real pagination — no UI currently supports paging through a
+    // closet, and no realistic user has anywhere near this many items. Just a backstop
+    // against one pathological account making this query unbounded.
     const { data, error } = await this.supabase
       .from('closet_items')
       .select('*')
       .eq('user_id', userId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
+      .limit(1000)
 
     if (error) throw error
     return data ?? []
