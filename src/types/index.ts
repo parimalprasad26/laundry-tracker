@@ -139,6 +139,7 @@ export interface ClosetItem {
   brand: string | null
   notes: string | null
   primary_image_path: string | null
+  photo_status: 'none' | 'pending' | 'uploaded' | 'failed'
   created_at: string
   updated_at: string
   created_by: string | null

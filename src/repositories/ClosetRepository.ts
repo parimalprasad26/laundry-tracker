@@ -53,6 +53,43 @@ export class ClosetRepository {
     return data
   }
 
+  async bulkCreate(userId: string, items: ClosetItemFormValues[]): Promise<ClosetItem[]> {
+    if (!items.length) return []
+    const rows = items.map(item => ({ ...item, user_id: userId, created_by: userId, updated_by: userId }))
+
+    const { data, error } = await this.supabase
+      .from('closet_items')
+      .insert(rows)
+      .select()
+
+    if (error) throw error
+    return data ?? []
+  }
+
+  async updatePhotoStatus(
+    id: string,
+    userId: string,
+    status: 'uploaded' | 'failed',
+    primaryImagePath?: string
+  ): Promise<ClosetItem> {
+    const update: { photo_status: string; updated_by: string; primary_image_path?: string } = {
+      photo_status: status,
+      updated_by: userId,
+    }
+    if (primaryImagePath !== undefined) update.primary_image_path = primaryImagePath
+
+    const { data, error } = await this.supabase
+      .from('closet_items')
+      .update(update)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
   async softDelete(id: string, userId: string): Promise<void> {
     const { error } = await this.supabase
       .from('closet_items')

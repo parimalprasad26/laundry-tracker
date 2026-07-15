@@ -28,6 +28,20 @@ export class ClosetService {
     return this.repo.update(id, userId, validated)
   }
 
+  async bulkCreate(userId: string, inputs: ClosetItemFormValues[]): Promise<ClosetItem[]> {
+    const validated = inputs.map(input => closetItemSchema.parse(input))
+    return this.repo.bulkCreate(userId, validated)
+  }
+
+  async setPhotoStatus(
+    id: string,
+    userId: string,
+    status: 'uploaded' | 'failed',
+    primaryImagePath?: string
+  ): Promise<ClosetItem> {
+    return this.repo.updatePhotoStatus(id, userId, status, primaryImagePath)
+  }
+
   async delete(id: string, userId: string): Promise<void> {
     await this.repo.softDelete(id, userId)
   }

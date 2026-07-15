@@ -26,10 +26,37 @@ export async function createClosetItem(input: ClosetItemFormValues): Promise<Act
   }
 }
 
+export async function bulkCreateClosetItems(inputs: ClosetItemFormValues[]): Promise<ActionResult<ClosetItem[]>> {
+  try {
+    const { service, userId } = await getAuthedService()
+    const items = await service.bulkCreate(userId, inputs)
+    updateTag('closet')
+    return { success: true, data: items }
+  } catch (e) {
+    return handleActionError(e)
+  }
+}
+
 export async function updateClosetItem(id: string, input: Partial<ClosetItemFormValues>): Promise<ActionResult<ClosetItem>> {
   try {
     const { service, userId } = await getAuthedService()
     const item = await service.update(id, userId, input)
+    updateTag('closet')
+    updateTag(`closet-${id}`)
+    return { success: true, data: item }
+  } catch (e) {
+    return handleActionError(e)
+  }
+}
+
+export async function setClosetItemPhotoStatus(
+  id: string,
+  status: 'uploaded' | 'failed',
+  primaryImagePath?: string
+): Promise<ActionResult<ClosetItem>> {
+  try {
+    const { service, userId } = await getAuthedService()
+    const item = await service.setPhotoStatus(id, userId, status, primaryImagePath)
     updateTag('closet')
     updateTag(`closet-${id}`)
     return { success: true, data: item }
