@@ -87,7 +87,10 @@ export async function resolveDispute(
   try {
     const { supabase, userId } = await getAuthed()
 
-    const dispute = await new DisputeService(supabase).resolve(disputeId, batchId, userId, resolution)
+    const batch = await new BatchService(supabase).getById(batchId)
+    if (!batch || batch.user_id !== userId) throw new Error('Batch not found')
+
+    const dispute = await new DisputeService(supabase).resolve(disputeId, userId, resolution)
 
     updateTag(`batch-${batchId}`)
     return { success: true, data: dispute }

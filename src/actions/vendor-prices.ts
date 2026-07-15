@@ -16,7 +16,7 @@ async function getAuthedService() {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) throw new Error('Unauthorized')
-  return { service: new VendorPriceService(supabase), userId: user.id }
+  return { supabase, service: new VendorPriceService(supabase), userId: user.id }
 }
 
 export async function getVendorPrices(vendorId: string): Promise<ActionResult<VendorItemPrice[]>> {
@@ -34,7 +34,8 @@ export async function saveVendorPrices(
   prices: VendorPriceEntry[]
 ): Promise<ActionResult> {
   try {
-    const { service, userId } = await getAuthedService()
+    const { supabase, service, userId } = await getAuthedService()
+    await new VendorService(supabase).requireOwned(vendorId)
     await service.save(vendorId, userId, prices)
     updateTag(`vendor-prices-${vendorId}`)
     updateTag('vendors')

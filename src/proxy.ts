@@ -4,8 +4,36 @@ import { checkRateLimit } from '@/lib/rate-limit'
 
 const PUBLIC_PATHS = ['/login', '/auth/callback', '/api/auth', '/api/cron', '/api/e2e-auth', '/terms', '/privacy']
 
+// script-src uses a per-request nonce + 'strict-dynamic' instead of 'unsafe-inline'/'unsafe-eval',
+// so an injected <script> tag can no longer execute even if it slips past other defenses.
+// 'strict-dynamic' still allows Next.js's own chunk loader and libraries that inject scripts
+// from already-trusted code (e.g. Vercel Analytics' document.createElement('script') call) to
+// work, since trust propagates from the nonce'd bundle that creates them. style-src is left as
+// 'unsafe-inline' — locking that down too would require auditing every inline style={} prop
+// across the app and third-party components, a much bigger and separately-riskier change.
+function buildCsp(nonce: string): string {
+  const isDev = process.env.NODE_ENV === 'development'
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.us.sentry.io",
+    "media-src 'self' blob:",
+    "worker-src 'self' blob:",
+    "frame-ancestors 'none'",
+  ].join('; ')
+}
+
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
+  const cspHeader = buildCsp(nonce)
+
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-nonce', nonce)
+  requestHeaders.set('Content-Security-Policy', cspHeader)
+
+  let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +45,7 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
+          supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -52,6 +80,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Setting it on the request headers above only makes the nonce available to Next.js's
+  // rendering pipeline — the response header below is what the browser actually enforces.
+  supabaseResponse.headers.set('Content-Security-Policy', cspHeader)
   return supabaseResponse
 }
 
