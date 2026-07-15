@@ -22,8 +22,11 @@ function getRatelimit() {
 
 export async function checkRateLimit(identifier: string): Promise<{ allowed: boolean; remaining: number }> {
   const rl = getRatelimit()
-  // Fail closed in production — never silently disable rate limiting
   if (!rl) {
+    // TODO: fail closed here once Upstash is confirmed configured in every deploy
+    // target and Sentry is wired up to alert on this branch — right now flipping
+    // this to reject would risk silently breaking uploads if Upstash is ever
+    // unset, with no error reporting in place yet to notice.
     return { allowed: true, remaining: 999 }
   }
 

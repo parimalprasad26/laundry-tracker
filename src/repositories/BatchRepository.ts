@@ -236,8 +236,8 @@ export class BatchRepository {
     })
   }
 
-  async getVendorComparisonStats(userId: string): Promise<Map<string, VendorComparisonStats>> {
-    const { data, error } = await this.supabase.rpc('get_vendor_comparison_stats', { p_user_id: userId })
+  async getVendorComparisonStats(): Promise<Map<string, VendorComparisonStats>> {
+    const { data, error } = await this.supabase.rpc('get_vendor_comparison_stats')
     if (error) throw error
     if (!data?.length) return new Map()
 
