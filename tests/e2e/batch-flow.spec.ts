@@ -275,8 +275,11 @@ test.describe('Vendors', () => {
     await page.goto('/vendors')
     await expect(page.getByRole('heading', { name: /vendors/i })).toBeVisible()
 
-    // Only visit detail pages (UUID paths), not /vendors/new
-    const detailLink = page.locator('a[href^="/vendors/"]:not([href="/vendors/new"])').first()
+    // Only visit detail pages (UUID paths) — match on the hyphen a UUID
+    // always contains, rather than enumerating every static /vendors/*
+    // route (new, find, connections, compare, …), so this doesn't need
+    // updating again the next time a static route is added.
+    const detailLink = page.locator('a[href^="/vendors/"][href*="-"]').first()
     if (await detailLink.count() > 0) {
       await detailLink.click()
       await page.waitForURL(/\/vendors\/[a-f0-9-]{36}/, { timeout: 8000 })
