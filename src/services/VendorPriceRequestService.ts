@@ -22,6 +22,7 @@ import type { VendorPriceRequest } from '@/types'
 export class VendorPriceRequestService {
   private repo: VendorPriceRequestRepository
   private vendorAccountRepo: VendorAccountRepository
+  private _adminClient?: SupabaseClient
   private _adminRepo?: VendorPriceRequestRepository
   private _adminVendorAccountRepo?: VendorAccountRepository
   private _adminPriceRepo?: VendorAccountPriceRepository
@@ -34,17 +35,20 @@ export class VendorPriceRequestService {
 
   // Lazy — see VendorConnectionService for why (testability without
   // service-role env vars present).
+  private get adminClient(): SupabaseClient {
+    return (this._adminClient ??= createAdminClient())
+  }
   private get adminRepo(): VendorPriceRequestRepository {
-    return (this._adminRepo ??= new VendorPriceRequestRepository(createAdminClient()))
+    return (this._adminRepo ??= new VendorPriceRequestRepository(this.adminClient))
   }
   private get adminVendorAccountRepo(): VendorAccountRepository {
-    return (this._adminVendorAccountRepo ??= new VendorAccountRepository(createAdminClient()))
+    return (this._adminVendorAccountRepo ??= new VendorAccountRepository(this.adminClient))
   }
   private get adminPriceRepo(): VendorAccountPriceRepository {
-    return (this._adminPriceRepo ??= new VendorAccountPriceRepository(createAdminClient()))
+    return (this._adminPriceRepo ??= new VendorAccountPriceRepository(this.adminClient))
   }
   private get adminBatchItemRepo(): BatchItemRepository {
-    return (this._adminBatchItemRepo ??= new BatchItemRepository(createAdminClient()))
+    return (this._adminBatchItemRepo ??= new BatchItemRepository(this.adminClient))
   }
 
   // Called from addItemsToBatch when a connected vendor has no price on file
@@ -63,7 +67,7 @@ export class VendorPriceRequestService {
     // Only notify on a genuinely new request — a second customer hitting the
     // same missing custom type while one's already pending would otherwise
     // re-notify the vendor for something they've already seen.
-    notifyVendorAccount(createAdminClient(), vendorAccountId, {
+    notifyVendorAccount(this.adminClient, vendorAccountId, {
       title: 'New price request',
       body: `A customer needs a price for "${customType}"`,
       tag: 'vendor-price-request',
@@ -98,8 +102,7 @@ export class VendorPriceRequestService {
     // Notifies whoever originally triggered the request — the price now
     // applies to every connected customer (decision #6), but this one is
     // the one we know was actually blocked waiting on it.
-    const admin = createAdminClient()
-    sendPushToUser(admin, request.requested_by_user_id, {
+    sendPushToUser(this.adminClient, request.requested_by_user_id, {
       title: 'Price set',
       body: `${vendorAccount.business_name} set a price for "${request.custom_type}"`,
       tag: 'customer-price-resolved',

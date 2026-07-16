@@ -93,3 +93,32 @@ describe('VendorConnectionService.disconnect', () => {
     await expect(service.disconnect('conn-1', 'a-different-customer')).rejects.toThrow('Connection not found')
   })
 })
+
+describe('VendorConnectionService.requestConnection — reconnecting after a disconnect', () => {
+  // Regression test: a customer who disconnects and later wants to
+  // reconnect used to hit "Cannot re-request a disconnected connection" —
+  // the status check only allowed re-requesting from 'rejected' or
+  // 'cancelled', never 'disconnected', even though nothing about the
+  // product design says a disconnect should be permanent.
+  it('allows re-requesting a previously disconnected connection', async () => {
+    const service = new VendorConnectionService({} as ConstructorParameters<typeof VendorConnectionService>[0])
+    const disconnected = makeConnection({ status: 'disconnected' })
+    const reRequested = makeConnection({ status: 'pending' })
+
+    // @ts-expect-error — patching private repo for test
+    service.vendorAccountRepo.findById = vi.fn().mockResolvedValue(makeVendorAccount())
+    // @ts-expect-error — patching private repo for test
+    service.repo.findByUserAndVendorAccount = vi.fn().mockResolvedValue(disconnected)
+    const reRequestSpy = vi.fn().mockResolvedValue(reRequested)
+    // @ts-expect-error — patching private repo for test
+    service.repo.reRequest = reRequestSpy
+    // @ts-expect-error — stubbing the lazy admin client so the notify call
+    // doesn't hit createAdminClient() (which throws without env vars)
+    service._adminClient = { from: vi.fn() }
+
+    const result = await service.requestConnection('customer-1', 'vendor-account-1')
+
+    expect(reRequestSpy).toHaveBeenCalledWith('customer-1', 'vendor-account-1')
+    expect(result.status).toBe('pending')
+  })
+})

@@ -22,6 +22,7 @@ import type { VendorConnection, VendorConnectedCustomer, VendorCustomerBatch, Ve
 export class VendorConnectionService {
   private repo: VendorConnectionRepository
   private vendorAccountRepo: VendorAccountRepository
+  private _adminClient?: SupabaseClient
   private _adminRepo?: VendorConnectionRepository
   private _adminVendorAccountRepo?: VendorAccountRepository
   private _adminBatchItemRepo?: BatchItemRepository
@@ -32,16 +33,25 @@ export class VendorConnectionService {
   }
 
   // Lazy — only touches env vars / constructs the admin client when a write
-  // method actually needs it, not on every instantiation (keeps this service
-  // constructible in tests without service-role env vars present).
+  // (or notify) method actually needs it, not on every instantiation (keeps
+  // this service constructible in tests without service-role env vars
+  // present). Every admin-backed repo AND every notify call in this class
+  // shares this one instance rather than calling createAdminClient() inline
+  // at each call site — an earlier version did that for the notify calls
+  // specifically, which broke the exact testability this pattern exists for
+  // (createAdminClient() throws synchronously without env vars, so an inline
+  // call inside a plain method body isn't deferred the way a getter is).
+  private get adminClient(): SupabaseClient {
+    return (this._adminClient ??= createAdminClient())
+  }
   private get adminRepo(): VendorConnectionRepository {
-    return (this._adminRepo ??= new VendorConnectionRepository(createAdminClient()))
+    return (this._adminRepo ??= new VendorConnectionRepository(this.adminClient))
   }
   private get adminVendorAccountRepo(): VendorAccountRepository {
-    return (this._adminVendorAccountRepo ??= new VendorAccountRepository(createAdminClient()))
+    return (this._adminVendorAccountRepo ??= new VendorAccountRepository(this.adminClient))
   }
   private get adminBatchItemRepo(): BatchItemRepository {
-    return (this._adminBatchItemRepo ??= new BatchItemRepository(createAdminClient()))
+    return (this._adminBatchItemRepo ??= new BatchItemRepository(this.adminClient))
   }
 
   async requestConnection(userId: string, vendorAccountId: string): Promise<VendorConnection> {
@@ -54,10 +64,10 @@ export class VendorConnectionService {
     let connection: VendorConnection
     if (!existing) connection = await this.repo.createRequest(userId, vendorAccountId)
     else if (existing.status === 'pending' || existing.status === 'active') return existing
-    else if (existing.status === 'rejected' || existing.status === 'cancelled') connection = await this.repo.reRequest(userId, vendorAccountId)
+    else if (existing.status === 'rejected' || existing.status === 'cancelled' || existing.status === 'disconnected') connection = await this.repo.reRequest(userId, vendorAccountId)
     else throw new Error(`Cannot re-request a ${existing.status} connection`)
 
-    notifyVendorAccount(createAdminClient(), vendorAccountId, {
+    notifyVendorAccount(this.adminClient, vendorAccountId, {
       title: 'New connection request',
       body: 'A customer wants to connect with you',
       tag: 'vendor-connection-request',
@@ -71,7 +81,7 @@ export class VendorConnectionService {
     const connection = await this.repo.findById(id)
     await this.repo.cancel(id, userId)
     if (connection) {
-      notifyVendorAccount(createAdminClient(), connection.vendor_account_id, {
+      notifyVendorAccount(this.adminClient, connection.vendor_account_id, {
         title: 'Connection request cancelled',
         body: 'A customer cancelled their connection request',
         tag: 'vendor-connection-cancelled',
@@ -102,7 +112,7 @@ export class VendorConnectionService {
     // away from `authenticated`.
     await this.adminBatchItemRepo.clearPendingPriceRequestsForUserServiceRole(userId, connection.vendor_account_id)
 
-    notifyVendorAccount(createAdminClient(), connection.vendor_account_id, {
+    notifyVendorAccount(this.adminClient, connection.vendor_account_id, {
       title: 'Customer disconnected',
       body: 'A customer disconnected from your portal',
       tag: 'vendor-connection-disconnected',
@@ -154,8 +164,7 @@ export class VendorConnectionService {
     if (!vendorAccount) throw new Error('Vendor account not found')
     const accepted = await this.adminRepo.acceptServiceRole(connectionId, connection.user_id, vendorAccount.id, vendorAccount.business_name)
 
-    const admin = createAdminClient()
-    sendPushToUser(admin, connection.user_id, {
+    sendPushToUser(this.adminClient, connection.user_id, {
       title: 'Connection accepted',
       body: `"${vendorAccount.business_name}" accepted your request`,
       tag: 'customer-connection-accepted',
@@ -171,8 +180,7 @@ export class VendorConnectionService {
     const vendorAccount = await this.adminVendorAccountRepo.findById(connection.vendor_account_id)
     await this.adminRepo.rejectServiceRole(connectionId)
 
-    const admin = createAdminClient()
-    sendPushToUser(admin, connection.user_id, {
+    sendPushToUser(this.adminClient, connection.user_id, {
       title: 'Connection declined',
       body: `"${vendorAccount?.business_name ?? 'A vendor'}" declined your request`,
       tag: 'customer-connection-rejected',
