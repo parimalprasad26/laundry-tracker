@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { VendorAccountService } from '@/services/VendorAccountService'
+import { ServiceWorkerRegistrar } from '@/components/layout/ServiceWorkerRegistrar'
 import { LayoutDashboard, ListChecks, Tag, Users } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -53,6 +54,7 @@ export default async function VendorLayout({ children }: { children: React.React
         )}
         {children}
       </main>
+      <ServiceWorkerRegistrar />
     </div>
   )
 }
