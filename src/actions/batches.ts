@@ -1,12 +1,15 @@
 'use server'
 
 import { handleActionError } from '@/lib/handle-error'
+import * as Sentry from '@sentry/nextjs'
 
 import { updateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { BatchService } from '@/services/BatchService'
 import { BatchItemService } from '@/services/BatchItemService'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
+import { notifyConnectedVendor } from '@/lib/vendor-notify'
 import type { BatchFormValues } from '@/schemas/batch.schema'
 import type { ActionResult, BatchWithStatus } from '@/types'
 
@@ -54,6 +57,17 @@ export async function markBatchSent(id: string): Promise<ActionResult<BatchWithS
     const batch = await service.markSent(id, userId)
     updateTag('batches')
     updateTag(`batch-${id}`)
+
+    if (batch.vendor_id) {
+      // A push failure is never a failure of the batch action itself —
+      // matches how the existing cron routes treat delivery as best-effort.
+      notifyConnectedVendor(createAdminClient(), batch.vendor_id, batch.id, {
+        title: `"${batch.name}" was sent to you`,
+        body: `${batch.total_items} item(s)`,
+        tag: 'vendor-batch-sent',
+      }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId: batch.id } }))
+    }
+
     return { success: true, data: batch }
   } catch (e) {
     return handleActionError(e)

@@ -1,6 +1,7 @@
 'use server'
 
 import { handleActionError } from '@/lib/handle-error'
+import * as Sentry from '@sentry/nextjs'
 
 import { updateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -14,6 +15,7 @@ import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
 import { VendorAccountPriceRepository } from '@/repositories/VendorAccountPriceRepository'
 import { VendorConnectionRepository } from '@/repositories/VendorConnectionRepository'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
+import { notifyConnectedVendor } from '@/lib/vendor-notify'
 import type { ActionResult, BatchItem, MissingCustomPrice } from '@/types'
 
 async function getAuthedService() {
@@ -197,6 +199,18 @@ export async function reportBatchItemIssues(
     })
 
     updateTag(`batch-${batchId}`)
+
+    if (batch.vendor_id && (damagedQty > 0 || missingQty > 0)) {
+      const parts = []
+      if (damagedQty > 0) parts.push(`${damagedQty} damaged`)
+      if (missingQty > 0) parts.push(`${missingQty} missing`)
+      notifyConnectedVendor(createAdminClient(), batch.vendor_id, batchId, {
+        title: 'Damage reported',
+        body: `${parts.join(', ')} item(s) on "${batch.name}"`,
+        tag: 'vendor-damage-reported',
+      }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+    }
+
     return { success: true, data: item }
   } catch (e) {
     return handleActionError(e)
@@ -234,6 +248,15 @@ export async function collectBatch(
 
     updateTag(`batch-${batchId}`)
     updateTag('batches')
+
+    if (batch.vendor_id) {
+      const notification = shortfall > 0
+        ? { title: 'Items missing from a collected batch', body: `${collectedCount}/${totalExpected} items collected from "${batch.name}"`, tag: 'vendor-batch-collected' }
+        : { title: 'A batch was collected', body: `"${batch.name}" — ${collectedCount} item(s) collected`, tag: 'vendor-batch-collected' }
+      notifyConnectedVendor(createAdminClient(), batch.vendor_id, batchId, notification)
+        .catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+    }
+
     return { success: true, data: undefined }
   } catch (e) {
     return handleActionError(e)
