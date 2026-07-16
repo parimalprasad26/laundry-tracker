@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { getCustomerBatchItems } from '@/actions/vendor-portal'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, AlertTriangle } from 'lucide-react'
 import { formatItemType } from '@/lib/item-type'
 
 export const metadata = { title: 'Batch Items' }
@@ -30,8 +30,20 @@ export default async function VendorCustomerBatchItemsPage({ params }: { params:
           {items.map(item => (
             <Card key={item.batch_item_id}>
               <CardContent className="flex items-center justify-between gap-3 py-3">
-                <div>
-                  <p className="text-sm font-medium">{formatItemType(item.item_type, item.custom_type)}</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium">{formatItemType(item.item_type, item.custom_type)}</p>
+                    {item.damaged_qty > 0 && (
+                      <Badge variant="destructive" className="text-[10px] gap-1">
+                        <AlertTriangle className="h-2.5 w-2.5" />{item.damaged_qty} damaged
+                      </Badge>
+                    )}
+                    {item.missing_qty > 0 && (
+                      <Badge variant="destructive" className="text-[10px] gap-1">
+                        <AlertTriangle className="h-2.5 w-2.5" />{item.missing_qty} missing
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {item.quantity_returned}/{item.quantity_sent} returned
                   </p>

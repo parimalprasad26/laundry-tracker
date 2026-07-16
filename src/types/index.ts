@@ -299,6 +299,8 @@ export interface VendorCustomerBatchItem {
   batch_item_id: string
   quantity_sent: number
   quantity_returned: number
+  damaged_qty: number
+  missing_qty: number
   unit_price: number | null
   pending_price_request_id: string | null
   item_type: ItemType
