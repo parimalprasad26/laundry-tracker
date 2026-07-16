@@ -43,8 +43,7 @@ export class VendorAccountPriceRepository {
       .from('vendor_account_prices')
       .select('id', { count: 'exact', head: true })
       .eq('vendor_account_id', vendorAccountId)
-      .eq('item_type', 'other')
-      .is('custom_type', null)
+      .neq('item_type', 'other')
     if (error) throw error
     return count ?? 0
   }

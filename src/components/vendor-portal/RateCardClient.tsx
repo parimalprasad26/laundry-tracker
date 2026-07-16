@@ -46,12 +46,28 @@ export function RateCardClient({ prices, onboardingComplete }: Props) {
 
   function handleCompleteOnboarding() {
     startTransition(async () => {
+      // Save every filled-in value first, so "Go live" works as one action
+      // instead of silently requiring each row's own Save button to have
+      // been clicked already — typing a price and never saving it looked
+      // identical to leaving it blank from the server's point of view.
+      for (const type of STANDARD_TYPES) {
+        const raw = values[type]
+        if (!raw) continue
+        const price = Number(raw)
+        if (Number.isNaN(price) || price < 0) continue
+        if (priceMap.get(type) === price) continue
+        const saveResult = await setStandardVendorPrice(type, price)
+        if (!saveResult.success) { toast.error(saveResult.error); return }
+      }
+
       const result = await completeVendorOnboarding()
       if (!result.success) { toast.error(result.error); return }
       toast.success("You're live — customers can now find you")
       router.refresh()
     })
   }
+
+  const hasAnyValue = prices.length > 0 || Object.values(values).some(v => v.trim() !== '')
 
   return (
     <div className="space-y-4">
@@ -78,7 +94,7 @@ export function RateCardClient({ prices, onboardingComplete }: Props) {
       </div>
 
       {!onboardingComplete && (
-        <Button disabled={isPending || prices.length === 0} onClick={handleCompleteOnboarding} className="w-full sm:w-auto">
+        <Button disabled={isPending || !hasAnyValue} onClick={handleCompleteOnboarding} className="w-full sm:w-auto">
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Go live — appear in customer search
         </Button>
