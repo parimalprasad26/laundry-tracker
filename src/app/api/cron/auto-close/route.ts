@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { BatchRepository } from '@/repositories/BatchRepository'
 import { BatchStateMachineService } from '@/services/BatchStateMachineService'
 import { sendPushToUser } from '@/lib/push-notify'
+import { notifyConnectedVendor } from '@/lib/vendor-notify'
 import type { BatchWithStatus } from '@/types'
 
 export async function GET(request: Request) {
@@ -76,6 +77,23 @@ export async function GET(request: Request) {
           }
 
       await sendPushToUser(admin, userId, notification)
+    }
+
+    // Vendor notification is per-batch, not grouped by customer — each batch
+    // can have a different (or no) connected vendor.
+    for (const batches of closedByUser.values()) {
+      for (const batch of batches) {
+        if (!batch.vendor_id) continue
+        try {
+          await notifyConnectedVendor(admin, batch.vendor_id, batch.id, {
+            title: 'A batch was closed',
+            body: `"${batch.name}" was auto-closed after being returned a while`,
+            tag: 'vendor-batch-closed',
+          })
+        } catch (err) {
+          Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId: batch.id } })
+        }
+      }
     }
   }
 

@@ -117,8 +117,16 @@ export async function setBatchItemReturned(
       // Item fully returned — if all items are now returned, anchor returned_at
       const batch = await batchService.getById(batchId)
       if (batch && batch.status === 'returned' && !batch.returned_at) {
-        await batchService.update(batchId, userId, { returned_at: new Date().toISOString() })
+        const updated = await batchService.update(batchId, userId, { returned_at: new Date().toISOString() })
         await new BatchStateMachineService(supabase).logEvent(batchId, userId, 'batch.all_returned')
+
+        if (updated.vendor_id) {
+          notifyConnectedVendor(createAdminClient(), updated.vendor_id, batchId, {
+            title: 'A batch was collected',
+            body: `"${updated.name}" — all items returned`,
+            tag: 'vendor-batch-collected',
+          }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+        }
       }
     }
 
@@ -135,12 +143,21 @@ export async function markAllBatchItemsReturned(batchId: string): Promise<Action
     const { supabase, service, userId } = await getAuthedService()
     await service.markAllReturned(batchId, userId)
     const now = new Date().toISOString()
-    await new BatchService(supabase).update(batchId, userId, { returned_at: now })
+    const batch = await new BatchService(supabase).update(batchId, userId, { returned_at: now })
     await new BatchStateMachineService(supabase).logEvent(batchId, userId, 'batch.all_returned', {
       returned_at: now,
     })
     updateTag(`batch-${batchId}`)
     updateTag('batches')
+
+    if (batch.vendor_id) {
+      notifyConnectedVendor(createAdminClient(), batch.vendor_id, batchId, {
+        title: 'A batch was collected',
+        body: `"${batch.name}" — all items returned`,
+        tag: 'vendor-batch-collected',
+      }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+    }
+
     return { success: true, data: undefined }
   } catch (e) {
     return handleActionError(e)
