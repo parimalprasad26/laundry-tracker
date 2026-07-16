@@ -1,0 +1,134 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { VendorConnectionRepository } from '@/repositories/VendorConnectionRepository'
+import { VendorAccountRepository } from '@/repositories/VendorAccountRepository'
+import { BatchItemRepository } from '@/repositories/BatchItemRepository'
+import type { VendorConnection, VendorConnectedCustomer, VendorCustomerBatch, VendorCustomerBatchItem } from '@/types'
+
+// Constructed with the caller's own authenticated (RLS-scoped) client — this
+// matters, not just for RLS, because the read methods below call SECURITY
+// DEFINER SQL functions (vendor_connected_customers etc.) that internally
+// derive auth.uid(). Calling those via the service-role admin client would
+// resolve auth.uid() to NULL (no session), silently returning zero rows —
+// not a security hole (fails closed), but a real functional bug. The
+// accept/reject/create-linked-vendor-row writes are the highest-value
+// target in this feature (plan Finding 2) and are NOT trusted to RLS alone
+// — those specific writes go through a separate, internally-held admin
+// client, only after re-verifying auth.uid() === the target vendor
+// account's auth_user_id.
+export class VendorConnectionService {
+  private repo: VendorConnectionRepository
+  private vendorAccountRepo: VendorAccountRepository
+  private _adminRepo?: VendorConnectionRepository
+  private _adminVendorAccountRepo?: VendorAccountRepository
+  private _adminBatchItemRepo?: BatchItemRepository
+
+  constructor(supabase: SupabaseClient) {
+    this.repo = new VendorConnectionRepository(supabase)
+    this.vendorAccountRepo = new VendorAccountRepository(supabase)
+  }
+
+  // Lazy — only touches env vars / constructs the admin client when a write
+  // method actually needs it, not on every instantiation (keeps this service
+  // constructible in tests without service-role env vars present).
+  private get adminRepo(): VendorConnectionRepository {
+    return (this._adminRepo ??= new VendorConnectionRepository(createAdminClient()))
+  }
+  private get adminVendorAccountRepo(): VendorAccountRepository {
+    return (this._adminVendorAccountRepo ??= new VendorAccountRepository(createAdminClient()))
+  }
+  private get adminBatchItemRepo(): BatchItemRepository {
+    return (this._adminBatchItemRepo ??= new BatchItemRepository(createAdminClient()))
+  }
+
+  async requestConnection(userId: string, vendorAccountId: string): Promise<VendorConnection> {
+    const vendorAccount = await this.vendorAccountRepo.findById(vendorAccountId)
+    if (!vendorAccount || vendorAccount.onboarding_completed_at == null) {
+      throw new Error('Vendor is not accepting connections')
+    }
+
+    const existing = await this.repo.findByUserAndVendorAccount(userId, vendorAccountId)
+    if (!existing) return this.repo.createRequest(userId, vendorAccountId)
+    if (existing.status === 'pending' || existing.status === 'active') return existing
+    if (existing.status === 'rejected' || existing.status === 'cancelled') return this.repo.reRequest(userId, vendorAccountId)
+    throw new Error(`Cannot re-request a ${existing.status} connection`)
+  }
+
+  async cancelRequest(id: string, userId: string): Promise<void> {
+    await this.repo.cancel(id, userId)
+  }
+
+  async listMyConnections(userId: string): Promise<Array<VendorConnection & { vendor_business_name: string }>> {
+    const connections = await this.repo.findAllForUser(userId)
+    const results = await Promise.all(
+      connections.map(async c => {
+        const vendorAccount = await this.vendorAccountRepo.findById(c.vendor_account_id)
+        return { ...c, vendor_business_name: vendorAccount?.business_name ?? 'Unknown vendor' }
+      })
+    )
+    return results
+  }
+
+  async disconnect(id: string, userId: string): Promise<void> {
+    const connection = await this.repo.findById(id)
+    if (!connection || connection.user_id !== userId) throw new Error('Connection not found')
+    await this.repo.disconnect(id, userId)
+    // Any custom item still awaiting this vendor's price decision would
+    // otherwise be stuck forever, now hidden from the vendor too (plan
+    // Finding 5) — revert those items to the ordinary unpriced state.
+    // Uses the admin repo since pending_price_request_id is column-locked
+    // away from `authenticated`.
+    await this.adminBatchItemRepo.clearPendingPriceRequestsForUserServiceRole(userId, connection.vendor_account_id)
+  }
+
+  // ── Vendor-side reads (via the caller's own session, so auth.uid()
+  // resolves correctly inside the SECURITY DEFINER functions) ──
+
+  async requireVendorOwnsConnection(connectionId: string, authUserId: string): Promise<VendorConnection> {
+    const connection = await this.repo.findById(connectionId)
+    if (!connection) throw new Error('Connection not found')
+    const vendorAccount = await this.vendorAccountRepo.findById(connection.vendor_account_id)
+    if (!vendorAccount || vendorAccount.auth_user_id !== authUserId) throw new Error('Connection not found')
+    return connection
+  }
+
+  async listPendingRequests(authUserId: string, vendorAccountId: string): Promise<Array<{ connection_id: string; customer_name: string | null; requested_at: string }>> {
+    const vendorAccount = await this.vendorAccountRepo.findById(vendorAccountId)
+    if (!vendorAccount || vendorAccount.auth_user_id !== authUserId) throw new Error('Vendor account not found')
+    return this.repo.findPendingRequestsWithCustomerName()
+  }
+
+  async listConnectedCustomers(): Promise<VendorConnectedCustomer[]> {
+    return this.repo.findConnectedCustomers()
+  }
+
+  async getCustomerBatches(authUserId: string, connectionId: string): Promise<VendorCustomerBatch[]> {
+    await this.requireVendorOwnsConnection(connectionId, authUserId)
+    return this.repo.findCustomerBatches(connectionId)
+  }
+
+  async getCustomerBatchItems(batchId: string): Promise<VendorCustomerBatchItem[]> {
+    // Authorization is enforced inside the vendor_customer_batch_items SQL
+    // function itself (SECURITY DEFINER, re-derives auth.uid() and checks
+    // the connection is active) — the function returns zero rows for a
+    // batch the caller isn't entitled to.
+    return this.repo.findCustomerBatchItems(batchId)
+  }
+
+  // ── Vendor-side writes (identity-checked against authUserId, executed via
+  // the internally-held admin client — see class comment) ──
+
+  async accept(connectionId: string, authUserId: string): Promise<VendorConnection> {
+    const connection = await this.requireVendorOwnsConnection(connectionId, authUserId)
+    if (connection.status !== 'pending') throw new Error(`Cannot accept a ${connection.status} connection`)
+    const vendorAccount = await this.adminVendorAccountRepo.findById(connection.vendor_account_id)
+    if (!vendorAccount) throw new Error('Vendor account not found')
+    return this.adminRepo.acceptServiceRole(connectionId, connection.user_id, vendorAccount.id, vendorAccount.business_name)
+  }
+
+  async reject(connectionId: string, authUserId: string): Promise<void> {
+    const connection = await this.requireVendorOwnsConnection(connectionId, authUserId)
+    if (connection.status !== 'pending') throw new Error(`Cannot reject a ${connection.status} connection`)
+    await this.adminRepo.rejectServiceRole(connectionId)
+  }
+}
