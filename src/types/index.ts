@@ -37,6 +37,12 @@ export interface LaundryVendor {
   phone: string | null
   address: string | null
   notes: string | null
+  // Convenience pointer only — never authoritative for whether a connection
+  // is active. Always check vendor_connections.status = 'active' live
+  // (VendorConnectionRepository.findActiveByLaundryVendorId) before treating
+  // this vendor as a connected platform vendor. See the vendor portal plan's
+  // Finding 1 for why.
+  vendor_account_id: string | null
   created_at: string
   updated_at: string
   created_by: string | null

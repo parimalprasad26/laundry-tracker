@@ -6,13 +6,17 @@ import { VendorPriceService } from '@/services/VendorPriceService'
 import { BatchService } from '@/services/BatchService'
 import { VendorForm } from '@/components/vendors/VendorForm'
 import { VendorPriceForm } from '@/components/vendors/VendorPriceForm'
+import { ConnectedVendorPriceList } from '@/components/vendors/ConnectedVendorPriceList'
 import { VendorPaymentNotes } from '@/components/vendors/VendorPaymentNotes'
 import { VendorTurnaroundStats } from '@/components/vendors/VendorTurnaroundStats'
 import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
 import { ChevronLeft } from 'lucide-react'
 import { BatchRepository } from '@/repositories/BatchRepository'
 import { BatchDisputeRepository } from '@/repositories/BatchDisputeRepository'
 import { ClosetRepository } from '@/repositories/ClosetRepository'
+import { VendorConnectionRepository } from '@/repositories/VendorConnectionRepository'
+import { VendorAccountPriceRepository } from '@/repositories/VendorAccountPriceRepository'
 import { VendorDamageRecord } from '@/components/vendors/VendorDamageRecord'
 
 interface Props {
@@ -45,6 +49,16 @@ export default async function VendorDetailPage({ params }: Props) {
 
   if (!vendor || vendor.user_id !== user.id) notFound()
 
+  // Connection status is re-derived live here — never read off
+  // vendor.vendor_account_id alone, since that column is a convenience
+  // pointer only, not authoritative (see the vendor portal plan's Finding 1).
+  const connection = vendor.vendor_account_id
+    ? await new VendorConnectionRepository(supabase).findActiveByLaundryVendorId(vendor.id)
+    : null
+  const connectedPrices = connection
+    ? await new VendorAccountPriceRepository(supabase).findByVendorAccount(connection.vendor_account_id)
+    : null
+
   const closedBatchIds = closedBatches.data.map(b => b.id)
   const disputeRepo = new BatchDisputeRepository(supabase)
   const [openDisputeCount, openSwapCount] = closedBatchIds.length > 0
@@ -61,6 +75,7 @@ export default async function VendorDetailPage({ params }: Props) {
           <ChevronLeft className="h-5 w-5" />
         </Link>
         <h1 className="text-xl font-semibold">{vendor.name}</h1>
+        {connection && <Badge className="text-[10px]">Connected</Badge>}
       </div>
 
       <VendorForm
@@ -100,11 +115,14 @@ export default async function VendorDetailPage({ params }: Props) {
         <div>
           <h2 className="font-medium text-sm">Price list</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Set the price per item type. Leave blank if this vendor doesn&apos;t handle that type.
-            Prices are automatically applied when you add items to a batch with this vendor.
+            {connection
+              ? 'This vendor manages their own pricing — it applies automatically when you add items to a batch with them.'
+              : "Set the price per item type. Leave blank if this vendor doesn't handle that type. Prices are automatically applied when you add items to a batch with this vendor."}
           </p>
         </div>
-        <VendorPriceForm vendorId={vendor.id} initialPrices={prices} customTypes={customTypes} />
+        {connection
+          ? <ConnectedVendorPriceList prices={connectedPrices ?? []} />
+          : <VendorPriceForm vendorId={vendor.id} initialPrices={prices} customTypes={customTypes} />}
       </div>
 
       {notedBatches.length > 0 && (
