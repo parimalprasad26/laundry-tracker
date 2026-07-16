@@ -38,3 +38,18 @@ export async function notifyConnectedVendor(
     url: `/vendor/customers/${connection.id}/${batchId}`,
   })
 }
+
+// For connection-request and price-request events, which don't have a
+// laundry_vendor_id to resolve through (a request isn't tied to a batch —
+// see notifyConnectedVendor above for that case). Resolves vendor_account_id
+// -> auth_user_id the same way, since push_subscriptions is keyed by the
+// latter, not the former.
+export async function notifyVendorAccount(
+  admin: SupabaseClient,
+  vendorAccountId: string,
+  notification: VendorNotification & { url: string }
+): Promise<void> {
+  const vendorAccount = await new VendorAccountRepository(admin).findById(vendorAccountId)
+  if (!vendorAccount) return
+  await sendPushToUser(admin, vendorAccount.auth_user_id, notification)
+}

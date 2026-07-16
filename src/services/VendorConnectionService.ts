@@ -3,6 +3,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { VendorConnectionRepository } from '@/repositories/VendorConnectionRepository'
 import { VendorAccountRepository } from '@/repositories/VendorAccountRepository'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
+import { notifyVendorAccount } from '@/lib/vendor-notify'
+import { sendPushToUser } from '@/lib/push-notify'
+import * as Sentry from '@sentry/nextjs'
 import type { VendorConnection, VendorConnectedCustomer, VendorCustomerBatch, VendorCustomerBatchItem } from '@/types'
 
 // Constructed with the caller's own authenticated (RLS-scoped) client — this
@@ -48,14 +51,33 @@ export class VendorConnectionService {
     }
 
     const existing = await this.repo.findByUserAndVendorAccount(userId, vendorAccountId)
-    if (!existing) return this.repo.createRequest(userId, vendorAccountId)
-    if (existing.status === 'pending' || existing.status === 'active') return existing
-    if (existing.status === 'rejected' || existing.status === 'cancelled') return this.repo.reRequest(userId, vendorAccountId)
-    throw new Error(`Cannot re-request a ${existing.status} connection`)
+    let connection: VendorConnection
+    if (!existing) connection = await this.repo.createRequest(userId, vendorAccountId)
+    else if (existing.status === 'pending' || existing.status === 'active') return existing
+    else if (existing.status === 'rejected' || existing.status === 'cancelled') connection = await this.repo.reRequest(userId, vendorAccountId)
+    else throw new Error(`Cannot re-request a ${existing.status} connection`)
+
+    notifyVendorAccount(createAdminClient(), vendorAccountId, {
+      title: 'New connection request',
+      body: 'A customer wants to connect with you',
+      tag: 'vendor-connection-request',
+      url: '/vendor/dashboard',
+    }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', connectionId: connection.id } }))
+
+    return connection
   }
 
   async cancelRequest(id: string, userId: string): Promise<void> {
+    const connection = await this.repo.findById(id)
     await this.repo.cancel(id, userId)
+    if (connection) {
+      notifyVendorAccount(createAdminClient(), connection.vendor_account_id, {
+        title: 'Connection request cancelled',
+        body: 'A customer cancelled their connection request',
+        tag: 'vendor-connection-cancelled',
+        url: '/vendor/dashboard',
+      }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', connectionId: id } }))
+    }
   }
 
   async listMyConnections(userId: string): Promise<Array<VendorConnection & { vendor_business_name: string }>> {
@@ -79,6 +101,13 @@ export class VendorConnectionService {
     // Uses the admin repo since pending_price_request_id is column-locked
     // away from `authenticated`.
     await this.adminBatchItemRepo.clearPendingPriceRequestsForUserServiceRole(userId, connection.vendor_account_id)
+
+    notifyVendorAccount(createAdminClient(), connection.vendor_account_id, {
+      title: 'Customer disconnected',
+      body: 'A customer disconnected from your portal',
+      tag: 'vendor-connection-disconnected',
+      url: '/vendor/dashboard',
+    }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', connectionId: id } }))
   }
 
   // ── Vendor-side reads (via the caller's own session, so auth.uid()
@@ -123,12 +152,31 @@ export class VendorConnectionService {
     if (connection.status !== 'pending') throw new Error(`Cannot accept a ${connection.status} connection`)
     const vendorAccount = await this.adminVendorAccountRepo.findById(connection.vendor_account_id)
     if (!vendorAccount) throw new Error('Vendor account not found')
-    return this.adminRepo.acceptServiceRole(connectionId, connection.user_id, vendorAccount.id, vendorAccount.business_name)
+    const accepted = await this.adminRepo.acceptServiceRole(connectionId, connection.user_id, vendorAccount.id, vendorAccount.business_name)
+
+    const admin = createAdminClient()
+    sendPushToUser(admin, connection.user_id, {
+      title: 'Connection accepted',
+      body: `"${vendorAccount.business_name}" accepted your request`,
+      tag: 'customer-connection-accepted',
+      url: '/vendors/connections',
+    }).catch(err => Sentry.captureException(err, { extra: { context: 'customer-notify', connectionId } }))
+
+    return accepted
   }
 
   async reject(connectionId: string, authUserId: string): Promise<void> {
     const connection = await this.requireVendorOwnsConnection(connectionId, authUserId)
     if (connection.status !== 'pending') throw new Error(`Cannot reject a ${connection.status} connection`)
+    const vendorAccount = await this.adminVendorAccountRepo.findById(connection.vendor_account_id)
     await this.adminRepo.rejectServiceRole(connectionId)
+
+    const admin = createAdminClient()
+    sendPushToUser(admin, connection.user_id, {
+      title: 'Connection declined',
+      body: `"${vendorAccount?.business_name ?? 'A vendor'}" declined your request`,
+      tag: 'customer-connection-rejected',
+      url: '/vendors/connections',
+    }).catch(err => Sentry.captureException(err, { extra: { context: 'customer-notify', connectionId } }))
   }
 }
