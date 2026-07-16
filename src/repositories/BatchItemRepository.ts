@@ -143,4 +143,45 @@ export class BatchItemRepository {
 
     if (error) throw error
   }
+
+  // ── Vendor price-request lifecycle — service-role only, since
+  // pending_price_request_id is column-locked away from `authenticated`
+  // (see migration 0032/0034). ──
+
+  async setPendingPriceRequestServiceRole(ids: string[], requestId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('batch_items')
+      .update({ pending_price_request_id: requestId })
+      .in('id', ids)
+    if (error) throw error
+  }
+
+  async resolvePendingPriceRequestServiceRole(requestId: string, unitPrice: number): Promise<void> {
+    const { error } = await this.supabase
+      .from('batch_items')
+      .update({ unit_price: unitPrice, pending_price_request_id: null })
+      .eq('pending_price_request_id', requestId)
+    if (error) throw error
+  }
+
+  // Disconnect must clear in-flight price requests, or the item is stuck
+  // forever awaiting a vendor relationship that no longer exists (plan
+  // Finding 5) — reverts to the ordinary "no price yet" state.
+  async clearPendingPriceRequestsForUserServiceRole(userId: string, vendorAccountId: string): Promise<void> {
+    const { data: requests, error: reqErr } = await this.supabase
+      .from('vendor_price_requests')
+      .select('id')
+      .eq('vendor_account_id', vendorAccountId)
+      .eq('status', 'pending')
+    if (reqErr) throw reqErr
+    const requestIds = (requests ?? []).map(r => r.id)
+    if (!requestIds.length) return
+
+    const { error } = await this.supabase
+      .from('batch_items')
+      .update({ pending_price_request_id: null })
+      .eq('user_id', userId)
+      .in('pending_price_request_id', requestIds)
+    if (error) throw error
+  }
 }

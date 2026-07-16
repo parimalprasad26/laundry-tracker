@@ -37,6 +37,12 @@ export interface LaundryVendor {
   phone: string | null
   address: string | null
   notes: string | null
+  // Convenience pointer only — never authoritative for whether a connection
+  // is active. Always check vendor_connections.status = 'active' live
+  // (VendorConnectionRepository.findActiveByLaundryVendorId) before treating
+  // this vendor as a connected platform vendor. See the vendor portal plan's
+  // Finding 1 for why.
+  vendor_account_id: string | null
   created_at: string
   updated_at: string
   created_by: string | null
@@ -210,6 +216,95 @@ export interface VendorComparisonStats {
 export interface MissingCustomPrice {
   customType: string
   batchItemIds: string[]
+}
+
+// ── Vendor Portal ───────────────────────────────────────────────────────
+export type VendorConnectionStatus = 'pending' | 'active' | 'rejected' | 'cancelled' | 'disconnected'
+
+export interface VendorAccount {
+  id: string
+  auth_user_id: string
+  business_name: string
+  phone: string | null
+  address: string | null
+  onboarding_completed_at: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+export interface VendorAccountPrice {
+  id: string
+  vendor_account_id: string
+  item_type: ItemType
+  custom_type: string | null
+  unit_price: number
+  created_at: string
+  updated_at: string
+  created_by: string | null
+  updated_by: string | null
+}
+
+export interface VendorConnection {
+  id: string
+  user_id: string
+  vendor_account_id: string
+  laundry_vendor_id: string | null
+  status: VendorConnectionStatus
+  requested_at: string
+  responded_at: string | null
+  disconnected_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface VendorPriceRequest {
+  id: string
+  vendor_account_id: string
+  custom_type: string
+  status: 'pending' | 'approved'
+  requested_by_user_id: string
+  resolved_unit_price: number | null
+  resolved_at: string | null
+  requested_at: string
+}
+
+export interface VendorSearchResult {
+  vendor_account_id: string
+  business_name: string
+  address: string | null
+  similarity: number
+}
+
+export interface VendorConnectedCustomer {
+  connection_id: string
+  customer_name: string | null
+  customer_avatar: string | null
+  laundry_vendor_id: string
+  connected_since: string | null
+}
+
+export interface VendorCustomerBatch {
+  batch_id: string
+  name: string
+  notes: string | null
+  sent_at: string | null
+  returned_at: string | null
+  closed_at: string | null
+  total_items: number
+  returned_items: number
+}
+
+export interface VendorCustomerBatchItem {
+  batch_item_id: string
+  quantity_sent: number
+  quantity_returned: number
+  damaged_qty: number
+  missing_qty: number
+  unit_price: number | null
+  pending_price_request_id: string | null
+  item_type: ItemType
+  custom_type: string | null
 }
 
 // ── Shared ────────────────────────────────────────────────────────────

@@ -75,8 +75,20 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && request.nextUrl.pathname === '/login') {
+    // One extra query, only on the login-redirect path — not worth teaching
+    // every request app-wide about vendor status (see the vendor portal
+    // plan's routing section). A logged-in vendor lands on their portal by
+    // default; the "switch to my personal account" link in /vendor/layout.tsx
+    // covers the dual-persona case from there.
+    const { data: vendorAccount } = await supabase
+      .from('vendor_accounts')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .is('deleted_at', null)
+      .maybeSingle()
+
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = vendorAccount ? '/vendor/dashboard' : '/dashboard'
     return NextResponse.redirect(url)
   }
 

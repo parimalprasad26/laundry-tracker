@@ -1,0 +1,95 @@
+import { describe, it, expect, vi } from 'vitest'
+import { VendorConnectionService } from '@/services/VendorConnectionService'
+import type { VendorConnection, VendorAccount } from '@/types'
+
+function makeConnection(overrides: Partial<VendorConnection> = {}): VendorConnection {
+  return {
+    id: 'conn-1',
+    user_id: 'customer-1',
+    vendor_account_id: 'vendor-account-1',
+    laundry_vendor_id: null,
+    status: 'pending',
+    requested_at: new Date().toISOString(),
+    responded_at: null,
+    disconnected_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    ...overrides,
+  }
+}
+
+function makeVendorAccount(overrides: Partial<VendorAccount> = {}): VendorAccount {
+  return {
+    id: 'vendor-account-1',
+    auth_user_id: 'vendor-owner-1',
+    business_name: 'Test Laundry',
+    phone: null,
+    address: null,
+    onboarding_completed_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    deleted_at: null,
+    ...overrides,
+  }
+}
+
+function makeService(connection: VendorConnection | null, vendorAccount: VendorAccount | null) {
+  const service = new VendorConnectionService({} as ConstructorParameters<typeof VendorConnectionService>[0])
+  // @ts-expect-error — patching private repo for test
+  service.repo.findById = vi.fn().mockResolvedValue(connection)
+  // @ts-expect-error — patching private repo for test
+  service.vendorAccountRepo.findById = vi.fn().mockResolvedValue(vendorAccount)
+  return service
+}
+
+describe('VendorConnectionService.requireVendorOwnsConnection', () => {
+  // The single highest-value guard in the whole feature (plan Finding 2) —
+  // a vendor session must never be able to act on a connection that isn't
+  // theirs, regardless of what connection id is supplied.
+  it('throws when the connection does not exist', async () => {
+    const service = makeService(null, null)
+    await expect(service.requireVendorOwnsConnection('conn-1', 'vendor-owner-1')).rejects.toThrow('Connection not found')
+  })
+
+  it('throws when the caller is not the vendor account owner', async () => {
+    const service = makeService(makeConnection(), makeVendorAccount({ auth_user_id: 'someone-else' }))
+    await expect(service.requireVendorOwnsConnection('conn-1', 'vendor-owner-1')).rejects.toThrow('Connection not found')
+  })
+
+  it('returns the connection when the caller genuinely owns the vendor account', async () => {
+    const connection = makeConnection()
+    const service = makeService(connection, makeVendorAccount())
+    await expect(service.requireVendorOwnsConnection('conn-1', 'vendor-owner-1')).resolves.toBe(connection)
+  })
+})
+
+describe('VendorConnectionService.accept', () => {
+  it('throws when the caller is not the vendor account owner (cannot forge acceptance of a request not addressed to them)', async () => {
+    const service = makeService(makeConnection(), makeVendorAccount({ auth_user_id: 'someone-else' }))
+    await expect(service.accept('conn-1', 'vendor-owner-1')).rejects.toThrow('Connection not found')
+  })
+
+  it('throws when the connection is not pending (cannot re-accept an already-active or rejected connection)', async () => {
+    const service = makeService(makeConnection({ status: 'active' }), makeVendorAccount())
+    await expect(service.accept('conn-1', 'vendor-owner-1')).rejects.toThrow('Cannot accept a active connection')
+  })
+})
+
+describe('VendorConnectionService.reject', () => {
+  it('throws when the caller is not the vendor account owner', async () => {
+    const service = makeService(makeConnection(), makeVendorAccount({ auth_user_id: 'someone-else' }))
+    await expect(service.reject('conn-1', 'vendor-owner-1')).rejects.toThrow('Connection not found')
+  })
+
+  it('throws when the connection is not pending', async () => {
+    const service = makeService(makeConnection({ status: 'rejected' }), makeVendorAccount())
+    await expect(service.reject('conn-1', 'vendor-owner-1')).rejects.toThrow('Cannot reject a rejected connection')
+  })
+})
+
+describe('VendorConnectionService.disconnect', () => {
+  it('throws when the caller is not the connection\'s own customer', async () => {
+    const service = makeService(makeConnection({ user_id: 'customer-1' }), null)
+    await expect(service.disconnect('conn-1', 'a-different-customer')).rejects.toThrow('Connection not found')
+  })
+})

@@ -4,11 +4,16 @@ import { handleActionError } from '@/lib/handle-error'
 
 import { updateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { BatchItemService } from '@/services/BatchItemService'
 import { BatchService } from '@/services/BatchService'
 import { InspectionPolicyService } from '@/services/InspectionPolicyService'
 import { BatchStateMachineService } from '@/services/BatchStateMachineService'
+import { VendorPriceRequestService } from '@/services/VendorPriceRequestService'
 import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
+import { VendorAccountPriceRepository } from '@/repositories/VendorAccountPriceRepository'
+import { VendorConnectionRepository } from '@/repositories/VendorConnectionRepository'
+import { BatchItemRepository } from '@/repositories/BatchItemRepository'
 import type { ActionResult, BatchItem, MissingCustomPrice } from '@/types'
 
 async function getAuthedService() {
@@ -26,11 +31,46 @@ export async function addItemsToBatch(
     const { supabase, service, userId } = await getAuthedService()
 
     const batch = await new BatchService(supabase).getEditable(batchId, userId)
-    const priceMap = batch.vendor_id
-      ? await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id, userId)
-      : undefined
+
+    // A batch's vendor is either a plain private contact (today's per-customer
+    // vendor_item_prices flow, unchanged) or a connected platform vendor (the
+    // vendor's single shared price list) — never both. Connection status is
+    // re-derived live here, never read off laundry_vendors.vendor_account_id
+    // directly (that column is a convenience pointer only, not authoritative —
+    // see the vendor portal plan's Finding 1).
+    let priceMap: Map<string, number> | undefined
+    let connectedVendorAccountId: string | null = null
+
+    if (batch.vendor_id) {
+      const connection = await new VendorConnectionRepository(supabase).findActiveByLaundryVendorId(batch.vendor_id)
+      if (connection) {
+        connectedVendorAccountId = connection.vendor_account_id
+        priceMap = await new VendorAccountPriceRepository(supabase).getPriceMap(connection.vendor_account_id)
+      } else {
+        priceMap = await new VendorPriceRepository(supabase).getPriceMap(batch.vendor_id, userId)
+      }
+    }
 
     const { items, missingCustomPrices } = await service.addItems(batchId, userId, closetItemIds, priceMap)
+
+    if (connectedVendorAccountId && missingCustomPrices.length > 0) {
+      // Connected vendor: a missing custom price becomes a pending request to
+      // the vendor, not a prompt asking the customer to type a price
+      // (decision #6) — the item shows "awaiting vendor price," the rest of
+      // the batch is unaffected.
+      const priceRequestService = new VendorPriceRequestService(supabase)
+      const adminBatchItemRepo = new BatchItemRepository(createAdminClient())
+      for (const missing of missingCustomPrices) {
+        const requestId = await priceRequestService.createIfNeeded(connectedVendorAccountId, missing.customType, userId)
+        if (requestId) {
+          await adminBatchItemRepo.setPendingPriceRequestServiceRole(missing.batchItemIds, requestId)
+        }
+      }
+      updateTag(`batch-${batchId}`)
+      updateTag('batches')
+      return { success: true, data: { items, missingCustomPrices: [] } }
+    }
+
     updateTag(`batch-${batchId}`)
     updateTag('batches')
     return { success: true, data: { items, missingCustomPrices } }

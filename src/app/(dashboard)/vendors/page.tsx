@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, MapPin, Phone, ChevronRight, Clock, BarChart2 } from 'lucide-react'
+import { Plus, MapPin, Phone, ChevronRight, Clock, BarChart2, Search, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const metadata = { title: 'Vendors' }
@@ -38,6 +38,15 @@ export default async function VendorsPage() {
             <Plus className="mr-1.5 h-4 w-4" />Add vendor
           </Link>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Link href="/vendors/find" className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'gap-1.5')}>
+          <Search className="h-4 w-4" />Find a vendor on the platform
+        </Link>
+        <Link href="/vendors/connections" className={cn(buttonVariants({ size: 'sm', variant: 'outline' }), 'gap-1.5')}>
+          <Link2 className="h-4 w-4" />My connection requests
+        </Link>
       </div>
 
       {vendors.length === 0 ? (

@@ -10,6 +10,7 @@ function makeVendor(overrides: Partial<LaundryVendor> = {}): LaundryVendor {
     phone: null,
     address: null,
     notes: null,
+    vendor_account_id: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     created_by: 'user-1',
