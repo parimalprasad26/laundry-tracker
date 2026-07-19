@@ -33,9 +33,10 @@ interface Props {
   batch: BatchWithStatus
   policy: Pick<InspectionPolicy, 'inspection_window_days' | 'dispute_window_days'>
   swapReported?: boolean
+  isVendorConnected?: boolean
 }
 
-export function BatchItemCard({ item, batchStatus, batch, policy, swapReported = false }: Props) {
+export function BatchItemCard({ item, batchStatus, batch, policy, swapReported = false, isVendorConnected = false }: Props) {
   const router = useRouter()
   const [unitPrice, setUnitPrice] = useState<number | null>(item.unit_price)
   const [editingPrice, setEditingPrice] = useState(false)
@@ -103,6 +104,10 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
   }
 
   const isLocked = !actions.isEditable
+  // A connected vendor's price list is authoritative for this batch — price
+  // editing is locked independently of the status-based isLocked above,
+  // while removal and other status-gated actions stay available.
+  const isPriceLocked = isLocked || isVendorConnected
 
   return (
     <Card className={cn(
@@ -165,11 +170,11 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
               </div>
             ) : (
               <button
-                onClick={!isLocked ? openPriceEdit : undefined}
-                disabled={isLocked}
+                onClick={!isPriceLocked ? openPriceEdit : undefined}
+                disabled={isPriceLocked}
                 className={cn(
                   'text-xs tabular-nums text-right min-w-[3rem] px-2 py-1 rounded-lg transition-colors',
-                  !isLocked ? 'hover:bg-muted' : 'cursor-default'
+                  !isPriceLocked ? 'hover:bg-muted' : 'cursor-default'
                 )}
               >
                 {lineTotal != null
@@ -189,10 +194,14 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
                   <MoreVertical className="h-4 w-4" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={openPriceEdit}>
-                    Edit price
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {!isPriceLocked && (
+                    <>
+                      <DropdownMenuItem onClick={openPriceEdit}>
+                        Edit price
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem onClick={handleRemove} className="text-destructive">
                     <Trash2 className="mr-2 h-4 w-4" />
                     Remove from batch

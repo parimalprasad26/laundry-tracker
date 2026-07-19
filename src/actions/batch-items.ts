@@ -88,7 +88,17 @@ export async function updateBatchItemPrice(
 ): Promise<ActionResult<BatchItem>> {
   try {
     const { supabase, service, userId } = await getAuthedService()
-    await new BatchService(supabase).getEditable(batchId, userId)
+    const batch = await new BatchService(supabase).getEditable(batchId, userId)
+
+    // A connected vendor's price list is the source of truth for this
+    // batch's items (see addItemsToBatch above) — the customer can't
+    // silently override it, or their calculated_cost would drift from
+    // what the vendor actually charges.
+    if (batch.vendor_id) {
+      const connection = await new VendorConnectionRepository(supabase).findActiveByLaundryVendorId(batch.vendor_id)
+      if (connection) throw new Error('Price is set by the vendor and cannot be edited')
+    }
+
     const item = await service.updateUnitPrice(itemId, userId, batchId, unitPrice)
     updateTag(`batch-${batchId}`)
     return { success: true, data: item }

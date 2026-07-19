@@ -6,6 +6,7 @@ import { BatchItemService } from '@/services/BatchItemService'
 import { InspectionPolicyService } from '@/services/InspectionPolicyService'
 import { DisputeService } from '@/services/DisputeService'
 import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
+import { VendorConnectionRepository } from '@/repositories/VendorConnectionRepository'
 import { BatchStatusBadge } from '@/components/batches/BatchStatusBadge'
 import { BatchItemCard } from '@/components/batch-items/BatchItemCard'
 import { AddFromClosetButton } from '@/components/batch-items/AddFromClosetButton'
@@ -48,10 +49,12 @@ export default async function BatchDetailPage({ params }: Props) {
 
   const isPostCollection = batch.status === 'returned' || batch.status === 'closed'
 
-  const [disputes, rawPolicy] = await Promise.all([
+  const [disputes, rawPolicy, vendorConnection] = await Promise.all([
     isPostCollection ? new DisputeService(supabase).getByBatch(id, user.id) : Promise.resolve([]),
     isPostCollection ? new InspectionPolicyService(supabase).getPolicy(user.id) : Promise.resolve(null),
+    batch.vendor_id ? new VendorConnectionRepository(supabase).findActiveByLaundryVendorId(batch.vendor_id) : Promise.resolve(null),
   ])
+  const isVendorConnected = vendorConnection != null
 
   const policy: Pick<InspectionPolicy, 'inspection_window_days' | 'dispute_window_days'> = rawPolicy
     ? { inspection_window_days: rawPolicy.inspection_window_days, dispute_window_days: rawPolicy.dispute_window_days }
@@ -177,6 +180,7 @@ export default async function BatchDetailPage({ params }: Props) {
                 batch={batch}
                 policy={policy}
                 swapReported={swapDisputeItemIds.has(item.id)}
+                isVendorConnected={isVendorConnected}
               />
             ))}
           </div>
@@ -194,6 +198,7 @@ export default async function BatchDetailPage({ params }: Props) {
             totalItems={batchItems.length}
             pricedItems={pricedItems}
             status={batch.status}
+            isVendorConnected={isVendorConnected}
           />
         </>
       )}
@@ -202,7 +207,7 @@ export default async function BatchDetailPage({ params }: Props) {
 }
 
 function CostSummary({
-  calculatedCost, actualCost, priceDeltaNote, totalItems, pricedItems, status,
+  calculatedCost, actualCost, priceDeltaNote, totalItems, pricedItems, status, isVendorConnected,
 }: {
   calculatedCost: number | null
   actualCost: number | null
@@ -210,6 +215,7 @@ function CostSummary({
   totalItems: number
   pricedItems: number
   status: BatchStatus
+  isVendorConnected: boolean
 }) {
   const unpricedCount = totalItems - pricedItems
   const isFinalized = status === 'returned' || status === 'closed'
@@ -234,7 +240,10 @@ function CostSummary({
 
         {unpricedCount > 0 && calculatedCost != null && !isFinalized && (
           <div className="px-4 py-2 text-xs text-muted-foreground">
-            {unpricedCount} item{unpricedCount > 1 ? 's' : ''} unpriced — tap &ldquo;—&rdquo; on a card to set manually
+            {isVendorConnected
+              ? `${unpricedCount} item${unpricedCount > 1 ? 's' : ''} awaiting a price from the vendor`
+              : <>{unpricedCount} item{unpricedCount > 1 ? 's' : ''} unpriced — tap &ldquo;—&rdquo; on a card to set manually</>
+            }
           </div>
         )}
 
