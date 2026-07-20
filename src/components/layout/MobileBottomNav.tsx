@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, ListOrdered, Shirt, CalendarDays, History, BarChart2, Store, Settings, AlertTriangle } from 'lucide-react'
+import { LayoutDashboard, ListOrdered, Shirt, CalendarDays, History, BarChart2, Store, Settings, AlertTriangle, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: '/summary',    label: 'Summary',  icon: BarChart2 },
   { href: '/vendors',    label: 'Vendors',  icon: Store },
   { href: '/settings',   label: 'Settings', icon: Settings },
+  { href: '/guide',      label: 'Guide',    icon: BookOpen },
 ]
 
 export function MobileBottomNav() {

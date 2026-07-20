@@ -2,13 +2,12 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { BookOpen, LogOut } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 
 interface Props {
   profile: { full_name: string | null; avatar_url: string | null } | null
@@ -42,11 +41,6 @@ export function UserMenu({ profile }: Props) {
         <div className="px-2 py-1.5">
           <p className="text-sm font-medium truncate">{profile?.full_name ?? 'User'}</p>
         </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem render={<Link href="/guide" />} className="cursor-pointer">
-          <BookOpen className="mr-2 h-4 w-4" />
-          Guide
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut} className="text-destructive cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
