@@ -124,6 +124,8 @@ function makeService() {
   // @ts-expect-error
   service._adminRepo = { findOpenByItem: vi.fn(), create: vi.fn(), findById: vi.fn(), resolveServiceRole: vi.fn() }
   // @ts-expect-error
+  service._adminInspectionPolicyRepo = { findByUser: vi.fn().mockResolvedValue({ dispute_window_days: 30 }) }
+  // @ts-expect-error
   service._adminStateMachine = { logEvent: vi.fn().mockResolvedValue(undefined) }
   return service
 }
@@ -190,6 +192,44 @@ describe('DisputeService.raiseAsVendor', () => {
     await expect(
       service.raiseAsVendor('vendor-owner-1', 'conn-1', 'item-1', { dispute_type: 'damage', damaged_qty: 1 })
     ).rejects.toThrow('has not been sent yet')
+  })
+
+  it('throws when the batch is closed and past the dispute window', async () => {
+    const service = makeService()
+    // @ts-expect-error
+    service._adminConnectionRepo.findById.mockResolvedValue(makeConnection())
+    // @ts-expect-error
+    service._adminVendorAccountRepo.findById.mockResolvedValue(makeVendorAccount())
+    // @ts-expect-error
+    service._adminBatchItemRepo.findByIdServiceRole.mockResolvedValue(makeBatchItem())
+    const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString()
+    // @ts-expect-error
+    service._adminBatchRepo.findById.mockResolvedValue(makeBatch({ status: 'closed', closed_at: fortyDaysAgo }))
+    await expect(
+      service.raiseAsVendor('vendor-owner-1', 'conn-1', 'item-1', { dispute_type: 'damage', damaged_qty: 1 })
+    ).rejects.toThrow('dispute window closed')
+  })
+
+  it('allows raising on a closed batch still within the dispute window', async () => {
+    const service = makeService()
+    // @ts-expect-error
+    service._adminConnectionRepo.findById.mockResolvedValue(makeConnection())
+    // @ts-expect-error
+    service._adminVendorAccountRepo.findById.mockResolvedValue(makeVendorAccount())
+    // @ts-expect-error
+    service._adminBatchItemRepo.findByIdServiceRole.mockResolvedValue(makeBatchItem())
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+    // @ts-expect-error
+    service._adminBatchRepo.findById.mockResolvedValue(makeBatch({ status: 'closed', closed_at: twoDaysAgo }))
+    // @ts-expect-error
+    service._adminRepo.findOpenByItem.mockResolvedValue(null)
+    const created = makeDispute()
+    // @ts-expect-error
+    service._adminRepo.create.mockResolvedValue(created)
+
+    const result = await service.raiseAsVendor('vendor-owner-1', 'conn-1', 'item-1', { dispute_type: 'damage', damaged_qty: 1 })
+
+    expect(result).toBe(created)
   })
 
   it('throws when the item already has an open dispute', async () => {

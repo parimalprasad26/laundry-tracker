@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { VendorConnectionRepository } from '@/repositories/VendorConnectionRepository'
 import { VendorAccountRepository } from '@/repositories/VendorAccountRepository'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
+import { BatchDisputeRepository } from '@/repositories/BatchDisputeRepository'
 import { notifyVendorAccount } from '@/lib/vendor-notify'
 import { sendPushToUser } from '@/lib/push-notify'
 import * as Sentry from '@sentry/nextjs'
@@ -26,6 +27,7 @@ export class VendorConnectionService {
   private _adminRepo?: VendorConnectionRepository
   private _adminVendorAccountRepo?: VendorAccountRepository
   private _adminBatchItemRepo?: BatchItemRepository
+  private _adminDisputeRepo?: BatchDisputeRepository
 
   constructor(supabase: SupabaseClient) {
     this.repo = new VendorConnectionRepository(supabase)
@@ -52,6 +54,9 @@ export class VendorConnectionService {
   }
   private get adminBatchItemRepo(): BatchItemRepository {
     return (this._adminBatchItemRepo ??= new BatchItemRepository(this.adminClient))
+  }
+  private get adminDisputeRepo(): BatchDisputeRepository {
+    return (this._adminDisputeRepo ??= new BatchDisputeRepository(this.adminClient))
   }
 
   async requestConnection(userId: string, vendorAccountId: string): Promise<VendorConnection> {
@@ -111,6 +116,11 @@ export class VendorConnectionService {
     // Uses the admin repo since pending_price_request_id is column-locked
     // away from `authenticated`.
     await this.adminBatchItemRepo.clearPendingPriceRequestsForUserServiceRole(userId, connection.vendor_account_id)
+
+    // Same reasoning — an open vendor-raised issue would otherwise be stuck
+    // forever: only the raising vendor can resolve it, but the moment the
+    // connection drops, vendor_all_disputes() no longer surfaces it to them.
+    await this.adminDisputeRepo.dismissOpenVendorRaisedServiceRole(userId, connection.vendor_account_id)
 
     notifyVendorAccount(this.adminClient, connection.vendor_account_id, {
       title: 'Customer disconnected',

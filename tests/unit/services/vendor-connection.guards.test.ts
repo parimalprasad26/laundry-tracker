@@ -92,6 +92,27 @@ describe('VendorConnectionService.disconnect', () => {
     const service = makeService(makeConnection({ user_id: 'customer-1' }), null)
     await expect(service.disconnect('conn-1', 'a-different-customer')).rejects.toThrow('Connection not found')
   })
+
+  it('dismisses any open vendor-raised dispute so it never gets stuck', async () => {
+    // Regression: without this, a vendor-raised issue on a now-disconnected
+    // vendor is unresolvable by either party — the customer can't resolve
+    // it (only the raising vendor can), and the vendor loses visibility
+    // into it once the connection is no longer active.
+    const service = makeService(makeConnection({ user_id: 'customer-1', vendor_account_id: 'vendor-account-1' }), null)
+    // @ts-expect-error — patching private repo for test
+    service.repo.disconnect = vi.fn().mockResolvedValue(undefined)
+    // @ts-expect-error
+    service._adminClient = {}
+    // @ts-expect-error
+    service._adminBatchItemRepo = { clearPendingPriceRequestsForUserServiceRole: vi.fn().mockResolvedValue(undefined) }
+    const dismissOpenVendorRaised = vi.fn().mockResolvedValue(undefined)
+    // @ts-expect-error
+    service._adminDisputeRepo = { dismissOpenVendorRaisedServiceRole: dismissOpenVendorRaised }
+
+    await service.disconnect('conn-1', 'customer-1')
+
+    expect(dismissOpenVendorRaised).toHaveBeenCalledWith('customer-1', 'vendor-account-1')
+  })
 })
 
 describe('VendorConnectionService.requestConnection — reconnecting after a disconnect', () => {

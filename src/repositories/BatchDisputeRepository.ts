@@ -14,6 +14,27 @@ export class BatchDisputeRepository {
     return (data ?? []) as VendorDispute[]
   }
 
+  // Disconnect must clear any open vendor-raised dispute, or it's stuck
+  // forever — the customer sees "awaiting the vendor" with no way to
+  // resolve it (only the raising vendor can, per the symmetric-resolution
+  // design), and the vendor loses visibility into it the moment the
+  // connection drops (vendor_all_disputes() requires status = 'active').
+  // Mirrors BatchItemRepository.clearPendingPriceRequestsForUserServiceRole.
+  async dismissOpenVendorRaisedServiceRole(userId: string, vendorAccountId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('batch_disputes')
+      .update({
+        status: 'dismissed',
+        resolution: 'Vendor disconnected before resolving',
+        resolved_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .eq('vendor_account_id', vendorAccountId)
+      .eq('raised_by_role', 'vendor')
+      .eq('status', 'open')
+    if (error) throw error
+  }
+
   async create(dispute: {
     batch_id: string
     batch_item_id: string

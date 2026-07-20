@@ -5,8 +5,10 @@ import { BatchItemRepository } from '@/repositories/BatchItemRepository'
 import { BatchRepository } from '@/repositories/BatchRepository'
 import { VendorConnectionRepository } from '@/repositories/VendorConnectionRepository'
 import { VendorAccountRepository } from '@/repositories/VendorAccountRepository'
+import { InspectionPolicyRepository } from '@/repositories/InspectionPolicyRepository'
 import { BatchStateMachineService } from './BatchStateMachineService'
 import { disputeClaimSchema, swapClaimSchema, disputeResolutionSchema } from '@/schemas/dispute.schema'
+import { addDays, isAfter } from 'date-fns'
 import type { BatchDispute, BatchDisputeWithContext, DisputeStatus, VendorDispute } from '@/types'
 
 export interface DisputeClaim {
@@ -40,6 +42,7 @@ export class DisputeService {
   private _adminBatchRepo?: BatchRepository
   private _adminConnectionRepo?: VendorConnectionRepository
   private _adminVendorAccountRepo?: VendorAccountRepository
+  private _adminInspectionPolicyRepo?: InspectionPolicyRepository
   private _adminStateMachine?: BatchStateMachineService
 
   constructor(supabase: SupabaseClient) {
@@ -68,6 +71,9 @@ export class DisputeService {
   }
   private get adminVendorAccountRepo(): VendorAccountRepository {
     return (this._adminVendorAccountRepo ??= new VendorAccountRepository(this.adminClient))
+  }
+  private get adminInspectionPolicyRepo(): InspectionPolicyRepository {
+    return (this._adminInspectionPolicyRepo ??= new InspectionPolicyRepository(this.adminClient))
   }
   private get adminStateMachine(): BatchStateMachineService {
     return (this._adminStateMachine ??= new BatchStateMachineService(this.adminClient))
@@ -126,6 +132,18 @@ export class DisputeService {
     status: DisputeStatus = 'resolved'
   ): Promise<BatchDispute> {
     const validated = disputeResolutionSchema.parse({ resolution })
+
+    // user_id on a vendor-raised dispute is still the customer's (by design —
+    // see raiseAsVendor), so the plain user_id-scoped update below would
+    // otherwise let a customer unilaterally resolve a claim the vendor made
+    // about their own item, defeating the symmetric-resolution design
+    // (vendor-raised issues are only resolved via resolveAsVendor).
+    const existing = await this.repo.findById(disputeId)
+    if (!existing || existing.user_id !== userId) throw new Error('Dispute not found')
+    if (existing.raised_by_role === 'vendor') {
+      throw new Error('This issue was raised by the vendor — only they can mark it resolved')
+    }
+
     const dispute = await this.repo.resolve(disputeId, userId, validated.resolution, status)
     // Log the event against the dispute's own batch_id, not a client-supplied one —
     // the repo update is scoped by disputeId+userId, so this is the verified source of truth.
@@ -185,6 +203,20 @@ export class DisputeService {
     // connection resolves to (see VendorConnectionRepository.acceptServiceRole).
     if (!batch || batch.vendor_id !== connection.laundry_vendor_id) throw new Error('Item not found')
     if (!batch.sent_at) throw new Error('Cannot flag an issue on a batch that has not been sent yet')
+
+    // No window while the batch is still active (draft/in_laundry/returned)
+    // — the vendor may still physically have the item and legitimately
+    // notice something at any point. Once closed, bound it the same way the
+    // customer's own post-close dispute window works, using the customer's
+    // policy (the vendor has none of their own — this is about the
+    // customer's batch).
+    if (batch.status === 'closed') {
+      const policy = await this.adminInspectionPolicyRepo.findByUser(batch.user_id)
+      const deadline = addDays(new Date(batch.closed_at!), policy.dispute_window_days)
+      if (isAfter(new Date(), deadline)) {
+        throw new Error(`This batch's dispute window closed ${policy.dispute_window_days} days after it was closed`)
+      }
+    }
 
     // Same mutual-exclusion invariant as the customer-facing guards
     // (openDispute/openSwapDispute/reportBatchItemIssues) — at most one open
