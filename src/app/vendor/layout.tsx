@@ -31,9 +31,14 @@ export default async function VendorLayout({ children }: { children: React.React
             <Users className="h-5 w-5" />
             <span className="font-semibold">{vendorAccount.business_name}</span>
           </div>
-          <Link href="/dashboard" className="text-xs text-muted-foreground hover:text-foreground">
-            Switch to my personal account
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/guide#vendor-side" className="text-xs text-muted-foreground hover:text-foreground">
+              Guide
+            </Link>
+            <Link href="/dashboard" className="text-xs text-muted-foreground hover:text-foreground">
+              Switch to my personal account
+            </Link>
+          </div>
         </div>
         <nav className="max-w-3xl mx-auto px-4 flex gap-1 -mb-px overflow-x-auto">
           {NAV_ITEMS.map(item => (
