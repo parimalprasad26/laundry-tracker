@@ -18,20 +18,36 @@ export function useDisputeMessages(disputeId: string, initialMessages: DisputeMe
 
   useEffect(() => {
     const supabase = createClient()
-    const channel = supabase
-      .channel(`dispute-messages-${disputeId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'dispute_messages', filter: `dispute_id=eq.${disputeId}` },
-        payload => {
-          const incoming = payload.new as DisputeMessage
-          setMessages(prev => (prev.some(m => m.id === incoming.id) ? prev : [...prev, incoming]))
-        }
-      )
-      .subscribe()
+    let cancelled = false
+    let channel: ReturnType<typeof supabase.channel> | undefined
+
+    // The browser client's websocket connection doesn't automatically carry
+    // the current session's JWT — without this, Realtime authorizes the
+    // subscription as `anon`, which the RLS policies above reject, and no
+    // events are ever delivered (reads elsewhere still work fine since
+    // those go over authenticated HTTP requests, not this socket).
+    async function subscribe() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (cancelled) return
+      if (session) supabase.realtime.setAuth(session.access_token)
+
+      channel = supabase
+        .channel(`dispute-messages-${disputeId}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'dispute_messages', filter: `dispute_id=eq.${disputeId}` },
+          payload => {
+            const incoming = payload.new as DisputeMessage
+            setMessages(prev => (prev.some(m => m.id === incoming.id) ? prev : [...prev, incoming]))
+          }
+        )
+        .subscribe()
+    }
+    subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      cancelled = true
+      if (channel) supabase.removeChannel(channel)
     }
   }, [disputeId])
 

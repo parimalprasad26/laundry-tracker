@@ -349,7 +349,7 @@ export interface VendorCustomerBatchItem {
   pending_price_request_id: string | null
   item_type: ItemType
   custom_type: string | null
-  has_open_dispute: boolean
+  open_dispute_id: string | null
 }
 
 // ── Shared ────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
+import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
-import { AlertTriangle, PackageX, MessageSquare, CheckCircle2, ArrowLeftRight } from 'lucide-react'
+import { AlertTriangle, PackageX, MessageSquare, MessageCircle, CheckCircle2, ArrowLeftRight } from 'lucide-react'
 import { ResolveDisputeButton } from './ResolveDisputeButton'
 import { publicImageUrl } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -141,13 +142,21 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
                   </p>
                 </div>
               </div>
-              {/* Symmetric resolution — a vendor-raised issue is resolved
-                  from the vendor's own Issues tab, not here. */}
-              {dispute.raised_by_role === 'vendor' ? (
-                <p className="text-[11px] text-muted-foreground">Awaiting the vendor to resolve this</p>
-              ) : (
-                <ResolveDisputeButton disputeId={dispute.id} batchId={batchId} />
-              )}
+              <div className="flex items-center gap-3">
+                {/* Symmetric resolution — a vendor-raised issue is resolved
+                    from the vendor's own Issues tab, not here. */}
+                {dispute.raised_by_role === 'vendor' ? (
+                  <p className="text-[11px] text-muted-foreground">Awaiting the vendor to resolve this</p>
+                ) : (
+                  <ResolveDisputeButton disputeId={dispute.id} batchId={batchId} />
+                )}
+                <Link
+                  href={`/issues/${dispute.id}`}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />Chat
+                </Link>
+              </div>
             </div>
           )
         })}
@@ -194,11 +203,19 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
                   </p>
                 </div>
               </div>
-              {dispute.raised_by_role === 'vendor' ? (
-                <p className="text-[11px] text-muted-foreground">Awaiting the vendor to resolve this</p>
-              ) : (
-                <ResolveDisputeButton disputeId={dispute.id} batchId={batchId} />
-              )}
+              <div className="flex items-center gap-3">
+                {dispute.raised_by_role === 'vendor' ? (
+                  <p className="text-[11px] text-muted-foreground">Awaiting the vendor to resolve this</p>
+                ) : (
+                  <ResolveDisputeButton disputeId={dispute.id} batchId={batchId} />
+                )}
+                <Link
+                  href={`/issues/${dispute.id}`}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" />Chat
+                </Link>
+              </div>
             </div>
           )
         })}
@@ -208,7 +225,11 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
           const item = itemById.get(dispute.batch_item_id)
           const ci = item?.closet_item
           return (
-            <div key={dispute.id} className="flex items-start gap-3 px-3 py-3 opacity-60 bg-background">
+            <Link
+              key={dispute.id}
+              href={`/issues/${dispute.id}`}
+              className="flex items-start gap-3 px-3 py-3 opacity-60 bg-background hover:opacity-100 transition-opacity"
+            >
               <CheckCircle2 className={cn(
                 'h-4 w-4 shrink-0 mt-0.5',
                 dispute.status === 'resolved' ? 'text-emerald-500' : 'text-muted-foreground'
@@ -217,7 +238,7 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
                 <p className="text-sm font-medium truncate">{ci?.name ?? 'Unknown item'}</p>
                 <p className="text-xs text-muted-foreground capitalize mt-0.5">{dispute.status}</p>
               </div>
-            </div>
+            </Link>
           )
         })}
       </div>
