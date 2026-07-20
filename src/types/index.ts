@@ -277,6 +277,14 @@ export interface VendorAccount {
   deleted_at: string | null
 }
 
+// ── Admin (vendor onboarding) ───────────────────────────────────────────
+export interface AdminUserSearchResult {
+  authUserId: string
+  email: string
+  fullName: string | null
+  isVendor: boolean
+}
+
 export interface VendorAccountPrice {
   id: string
   vendor_account_id: string
