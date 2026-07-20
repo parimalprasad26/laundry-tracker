@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { createClient } from '@/lib/supabase/server'
 import { DisputeService } from '@/services/DisputeService'
+import { DisputeChatService } from '@/services/DisputeChatService'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
 import { ResolveDisputeButton } from '@/components/batch/ResolveDisputeButton'
 import { publicImageUrl, cn } from '@/lib/utils'
@@ -21,6 +22,9 @@ export default async function IssuesPage() {
     new DisputeService(supabase).findAllForUser(user.id),
     new BatchItemRepository(supabase).findIssuesForUser(user.id),
   ])
+
+  const unreadByDispute = await new DisputeChatService(supabase)
+    .countUnread(disputes.map(d => d.id), 'customer')
 
   const openDisputes = disputes.filter(d => d.status === 'open')
   const closedDisputes = disputes.filter(d => d.status !== 'open')
@@ -95,7 +99,7 @@ export default async function IssuesPage() {
                   isSwap ? 'bg-blue-50/50 dark:bg-blue-500/5' : 'bg-amber-50/50 dark:bg-amber-500/5'
                 )}
               >
-                <Link href={`/batches/${dispute.batch_id}`} className="flex items-start gap-3">
+                <Link href={`/issues/${dispute.id}`} className="flex items-start gap-3">
                   <div className="h-9 w-9 rounded-lg overflow-hidden bg-muted shrink-0 mt-0.5">
                     {imageUrl
                       ? <img src={imageUrl} alt={ci?.name} className="w-full h-full object-cover" />
@@ -117,6 +121,11 @@ export default async function IssuesPage() {
                       {isVendorRaised && (
                         <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                           Flagged by vendor
+                        </span>
+                      )}
+                      {(unreadByDispute.get(dispute.id) ?? 0) > 0 && (
+                        <span className="shrink-0 flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
+                          <MessageSquare className="h-2.5 w-2.5" />{unreadByDispute.get(dispute.id)}
                         </span>
                       )}
                     </div>
@@ -151,7 +160,7 @@ export default async function IssuesPage() {
           {closedDisputes.map(dispute => (
             <Link
               key={dispute.id}
-              href={`/batches/${dispute.batch_id}`}
+              href={`/issues/${dispute.id}`}
               className="flex items-start gap-3 px-3 py-3 opacity-60 bg-background hover:opacity-100 transition-opacity"
             >
               <CheckCircle2 className={cn(

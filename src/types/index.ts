@@ -142,6 +142,17 @@ export interface VendorDispute {
   resolution: string | null
 }
 
+export interface DisputeMessage {
+  id: string
+  dispute_id: string
+  sender_role: DisputeRaisedByRole
+  sender_user_id: string | null
+  sender_vendor_account_id: string | null
+  body: string
+  created_at: string
+  read_at: string | null
+}
+
 export interface InspectionPolicy {
   user_id: string
   inspection_window_days: number
@@ -338,7 +349,7 @@ export interface VendorCustomerBatchItem {
   pending_price_request_id: string | null
   item_type: ItemType
   custom_type: string | null
-  has_open_dispute: boolean
+  open_dispute_id: string | null
 }
 
 // ── Shared ────────────────────────────────────────────────────────────

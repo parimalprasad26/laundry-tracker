@@ -8,6 +8,7 @@ import { VendorAccountService } from '@/services/VendorAccountService'
 import { VendorConnectionService } from '@/services/VendorConnectionService'
 import { VendorPriceRequestService } from '@/services/VendorPriceRequestService'
 import { DisputeService } from '@/services/DisputeService'
+import { DisputeChatService } from '@/services/DisputeChatService'
 import type { VendorAccountProfileValues } from '@/schemas/vendor-account.schema'
 import type {
   ActionResult, VendorAccount, VendorAccountPrice, VendorConnection,
@@ -38,6 +39,7 @@ async function getAuthedVendor() {
     connectionService: new VendorConnectionService(supabase),
     priceRequestService: new VendorPriceRequestService(supabase),
     disputeService: new DisputeService(supabase),
+    disputeChatService: new DisputeChatService(supabase),
   }
 }
 
@@ -184,6 +186,16 @@ export async function listVendorIssues(): Promise<ActionResult<VendorDispute[]>>
     const { disputeService } = await getAuthedVendor()
     const disputes = await disputeService.listForVendor()
     return { success: true, data: disputes }
+  } catch (e) {
+    return handleActionError(e)
+  }
+}
+
+export async function listVendorDisputeUnreadCounts(disputeIds: string[]): Promise<ActionResult<Record<string, number>>> {
+  try {
+    const { disputeChatService } = await getAuthedVendor()
+    const counts = await disputeChatService.countUnread(disputeIds, 'vendor')
+    return { success: true, data: Object.fromEntries(counts) }
   } catch (e) {
     return handleActionError(e)
   }
