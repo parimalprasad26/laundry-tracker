@@ -75,6 +75,23 @@ export class BatchDisputeRepository {
     return count ?? 0
   }
 
+  // Damage and swap reports are mutually exclusive per item — an open swap
+  // dispute means the item isn't even the customer's, so a damage claim
+  // against it doesn't make sense, and vice versa. Used to block one type
+  // from being opened while the other is already active on the same item.
+  async findOpenSwapByItem(batchItemId: string, userId: string): Promise<BatchDispute | null> {
+    const { data, error } = await this.supabase
+      .from('batch_disputes')
+      .select('*')
+      .eq('batch_item_id', batchItemId)
+      .eq('user_id', userId)
+      .eq('status', 'open')
+      .eq('dispute_type', 'swap')
+      .maybeSingle()
+    if (error) throw error
+    return data as BatchDispute | null
+  }
+
   async countOpenByBatch(batchId: string, userId: string): Promise<number> {
     const { count, error } = await this.supabase
       .from('batch_disputes')

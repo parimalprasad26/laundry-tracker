@@ -268,8 +268,12 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
           )
         )}
 
-        {/* Swap button — only for collected items within inspection window */}
-        {batchStatus === 'returned' && actions.canReportDamage && item.quantity_returned > 0 && (
+        {/* Swap button — only for collected items within inspection window,
+            and only while there's no active damage/missing report on this
+            item (the two are mutually exclusive per item — a wrong item
+            isn't the customer's, so a damage claim against it doesn't
+            make sense, and vice versa) */}
+        {batchStatus === 'returned' && actions.canReportDamage && item.quantity_returned > 0 && !hasIssues && (
           swapReported ? (
             <div className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 bg-blue-50 dark:bg-blue-500/10 ring-1 ring-blue-200 dark:ring-blue-500/25 text-xs font-medium text-blue-700 dark:text-blue-300">
               <ArrowLeftRight className="h-3.5 w-3.5" />
@@ -286,8 +290,10 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
           )
         )}
 
-        {/* Dispute button — visible on 'closed' status within dispute window */}
-        {batchStatus === 'closed' && actions.canOpenDispute && item.quantity_returned > 0 && (
+        {/* Dispute button — visible on 'closed' status within dispute window.
+            Hidden once a swap is already reported on this item — see the
+            swap button above for why the two are mutually exclusive. */}
+        {batchStatus === 'closed' && actions.canOpenDispute && item.quantity_returned > 0 && !swapReported && (
           <button
             onClick={() => setDisputeOpen(true)}
             className="w-full flex items-center justify-center gap-2 rounded-xl py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-dashed border-border"

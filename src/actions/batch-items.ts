@@ -9,6 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { BatchItemService } from '@/services/BatchItemService'
 import { BatchService } from '@/services/BatchService'
 import { InspectionPolicyService } from '@/services/InspectionPolicyService'
+import { DisputeService } from '@/services/DisputeService'
 import { BatchStateMachineService } from '@/services/BatchStateMachineService'
 import { VendorPriceRequestService } from '@/services/VendorPriceRequestService'
 import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
@@ -215,6 +216,14 @@ export async function reportBatchItemIssues(
     if (!batchItem) throw new Error('Item not found')
     if (damagedQty > batchItem.quantity_returned) {
       throw new Error(`Damaged quantity (${damagedQty}) cannot exceed returned quantity (${batchItem.quantity_returned})`)
+    }
+
+    // Mirror of the check in openSwapDispute — an open swap ("wrong item")
+    // report means this item isn't the customer's, so a damage/missing
+    // claim against it is contradictory.
+    if (damagedQty > 0 || missingQty > 0) {
+      const openSwap = await new DisputeService(supabase).findOpenSwapByItem(itemId, userId)
+      if (openSwap) throw new Error('This item has an open swap report — resolve it before reporting damage')
     }
 
     const item = await service.reportIssues(itemId, userId, damagedQty, missingQty, 'post_return')
