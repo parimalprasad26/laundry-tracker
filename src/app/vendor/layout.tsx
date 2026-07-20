@@ -3,10 +3,11 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { VendorAccountService } from '@/services/VendorAccountService'
 import { ServiceWorkerRegistrar } from '@/components/layout/ServiceWorkerRegistrar'
-import { LayoutDashboard, ListChecks, Tag, Users } from 'lucide-react'
+import { LayoutDashboard, ListChecks, Tag, Users, AlertTriangle } from 'lucide-react'
 
 const NAV_ITEMS = [
   { href: '/vendor/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/vendor/issues', label: 'Issues', icon: AlertTriangle },
   { href: '/vendor/prices', label: 'Rate card', icon: Tag },
   { href: '/vendor/requests', label: 'Price requests', icon: ListChecks },
 ]

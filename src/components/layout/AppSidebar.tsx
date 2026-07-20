@@ -1,6 +1,6 @@
 'use client'
 
-import { LayoutDashboard, ListOrdered, History, Store, Shirt, CalendarDays, Settings2, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, ListOrdered, History, Store, Shirt, CalendarDays, Settings2, BarChart3, AlertTriangle } from 'lucide-react'
 import { NavLink } from './NavLink'
 import { UserMenu } from './UserMenu'
 import { ThemeToggle } from './ThemeToggle'
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: '/closet', label: 'Closet', icon: Shirt },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/history', label: 'History', icon: History },
+  { href: '/issues', label: 'Issues', icon: AlertTriangle },
   { href: '/summary', label: 'Summary', icon: BarChart3 },
   { href: '/vendors', label: 'Vendors', icon: Store },
   { href: '/settings', label: 'Settings', icon: Settings2 },
