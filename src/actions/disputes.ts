@@ -1,11 +1,14 @@
 'use server'
 
 import { handleActionError } from '@/lib/handle-error'
+import * as Sentry from '@sentry/nextjs'
 import { updateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { BatchService } from '@/services/BatchService'
 import { DisputeService } from '@/services/DisputeService'
 import { InspectionPolicyService } from '@/services/InspectionPolicyService'
+import { notifyConnectedVendor } from '@/lib/vendor-notify'
 import type { ActionResult, BatchDispute } from '@/types'
 
 async function getAuthed() {
@@ -48,6 +51,15 @@ export async function openDispute(
     })
 
     updateTag(`batch-${batchId}`)
+
+    if (batch.vendor_id) {
+      notifyConnectedVendor(createAdminClient(), batch.vendor_id, batchId, {
+        title: 'Dispute opened',
+        body: `${damagedQty} damaged item(s) disputed on "${batch.name}"`,
+        tag: 'vendor-dispute-opened',
+      }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+    }
+
     return { success: true, data: dispute }
   } catch (e) {
     return handleActionError(e)
@@ -73,6 +85,15 @@ export async function openSwapDispute(
     })
 
     updateTag(`batch-${batchId}`)
+
+    if (batch.vendor_id) {
+      notifyConnectedVendor(createAdminClient(), batch.vendor_id, batchId, {
+        title: 'Wrong item reported',
+        body: `A swap dispute was opened on "${batch.name}"`,
+        tag: 'vendor-dispute-opened',
+      }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+    }
+
     return { success: true, data: dispute }
   } catch (e) {
     return handleActionError(e)
@@ -93,6 +114,15 @@ export async function resolveDispute(
     const dispute = await new DisputeService(supabase).resolve(disputeId, userId, resolution)
 
     updateTag(`batch-${batchId}`)
+
+    if (batch.vendor_id) {
+      notifyConnectedVendor(createAdminClient(), batch.vendor_id, batchId, {
+        title: 'Dispute resolved',
+        body: `The dispute on "${batch.name}" was ${dispute.status}`,
+        tag: 'vendor-dispute-resolved',
+      }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+    }
+
     return { success: true, data: dispute }
   } catch (e) {
     return handleActionError(e)

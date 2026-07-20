@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
-import webpush from 'web-push'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { BatchRepository } from '@/repositories/BatchRepository'
 import { BatchStateMachineService } from '@/services/BatchStateMachineService'
-import { PushSubscriptionRepository } from '@/repositories/PushSubscriptionRepository'
+import { sendPushToUser } from '@/lib/push-notify'
+import { notifyConnectedVendor } from '@/lib/vendor-notify'
 import type { BatchWithStatus } from '@/types'
 
 export async function GET(request: Request) {
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT!,
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-  )
-
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -26,7 +20,6 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
   const batchRepo = new BatchRepository(admin)
   const stateMachine = new BatchStateMachineService(admin)
-  const pushRepo = new PushSubscriptionRepository(admin)
 
   let closed = 0
   let errors = 0
@@ -69,9 +62,6 @@ export async function GET(request: Request) {
   // Send one push notification per user (grouped if multiple batches closed)
   if (!dryRun && closedByUser.size > 0) {
     for (const [userId, batches] of closedByUser) {
-      const subs = await pushRepo.findAllForUser(userId)
-      if (subs.length === 0) continue
-
       const notification = batches.length === 1
         ? {
             title: `"${batches[0].name}" was auto-closed`,
@@ -86,18 +76,22 @@ export async function GET(request: Request) {
             url: `/batches`,
           }
 
-      for (const sub of subs) {
+      await sendPushToUser(admin, userId, notification)
+    }
+
+    // Vendor notification is per-batch, not grouped by customer — each batch
+    // can have a different (or no) connected vendor.
+    for (const batches of closedByUser.values()) {
+      for (const batch of batches) {
+        if (!batch.vendor_id) continue
         try {
-          await webpush.sendNotification(
-            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-            JSON.stringify(notification)
-          )
-        } catch (err: unknown) {
-          if ((err as { statusCode?: number }).statusCode === 410) {
-            await pushRepo.delete(userId, sub.endpoint)
-          } else {
-            Sentry.captureException(err, { extra: { userId, endpoint: sub.endpoint } })
-          }
+          await notifyConnectedVendor(admin, batch.vendor_id, batch.id, {
+            title: 'A batch was closed',
+            body: `"${batch.name}" was auto-closed after being returned a while`,
+            tag: 'vendor-batch-closed',
+          })
+        } catch (err) {
+          Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId: batch.id } })
         }
       }
     }

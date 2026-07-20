@@ -8,18 +8,12 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { subscribeToPush, unsubscribeFromPush } from '@/actions/push-subscriptions'
 import { saveReminderThreshold } from '@/actions/user-settings'
+import { urlBase64ToUint8Array } from '@/lib/push-client'
 import { cn } from '@/lib/utils'
 
 const THRESHOLD_OPTIONS = [1, 2, 3, 5, 7]
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = atob(base64)
-  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
-}
 
 export function ReminderSettings({ initialThreshold }: { initialThreshold: number }) {
   const [supported, setSupported] = useState(true)

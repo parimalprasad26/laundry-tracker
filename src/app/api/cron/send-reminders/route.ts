@@ -1,20 +1,14 @@
 import { NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
-import webpush from 'web-push'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PushSubscriptionRepository } from '@/repositories/PushSubscriptionRepository'
 import { BatchRepository } from '@/repositories/BatchRepository'
 import { UserSettingsRepository } from '@/repositories/UserSettingsRepository'
+import { sendPushToUser } from '@/lib/push-notify'
 
 const PAGE_SIZE = 500
 
 export async function GET(request: Request) {
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT!,
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-  )
-
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -86,27 +80,14 @@ export async function GET(request: Request) {
         continue
       }
 
-      for (const sub of userSubs) {
-        for (const notification of notifications) {
-          if (dryRun) {
-            sent++
-            continue
-          }
-          try {
-            await webpush.sendNotification(
-              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-              JSON.stringify({ ...notification, url: '/batches' })
-            )
-            sent++
-          } catch (err: unknown) {
-            if ((err as { statusCode?: number }).statusCode === 410) {
-              await pushRepo.delete(userId, sub.endpoint)
-            } else {
-              errors++
-              Sentry.captureException(err, { extra: { userId, endpoint: sub.endpoint } })
-            }
-          }
+      for (const notification of notifications) {
+        if (dryRun) {
+          sent += userSubs.length
+          continue
         }
+        const result = await sendPushToUser(admin, userId, { ...notification, url: '/batches' })
+        sent += result.sent
+        errors += result.errors
       }
     }
 

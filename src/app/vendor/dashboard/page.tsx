@@ -1,6 +1,7 @@
 import { listConnectedCustomers, listIncomingConnectionRequests } from '@/actions/vendor-portal'
 import { ConnectedCustomersList } from '@/components/vendor-portal/ConnectedCustomersList'
 import { PendingRequestsClient } from '@/components/vendor-portal/PendingRequestsClient'
+import { VendorPushToggle } from '@/components/vendor-portal/VendorPushToggle'
 
 export const metadata = { title: 'Vendor Dashboard' }
 
@@ -15,6 +16,8 @@ export default async function VendorDashboardPage() {
 
   return (
     <div className="space-y-6">
+      <VendorPushToggle />
+
       <section className="space-y-2.5">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
           Pending requests {requests.length > 0 && `(${requests.length})`}

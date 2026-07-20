@@ -1,6 +1,7 @@
 'use server'
 
 import { handleActionError } from '@/lib/handle-error'
+import * as Sentry from '@sentry/nextjs'
 
 import { updateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -14,6 +15,7 @@ import { VendorPriceRepository } from '@/repositories/VendorPriceRepository'
 import { VendorAccountPriceRepository } from '@/repositories/VendorAccountPriceRepository'
 import { VendorConnectionRepository } from '@/repositories/VendorConnectionRepository'
 import { BatchItemRepository } from '@/repositories/BatchItemRepository'
+import { notifyConnectedVendor } from '@/lib/vendor-notify'
 import type { ActionResult, BatchItem, MissingCustomPrice } from '@/types'
 
 async function getAuthedService() {
@@ -86,7 +88,17 @@ export async function updateBatchItemPrice(
 ): Promise<ActionResult<BatchItem>> {
   try {
     const { supabase, service, userId } = await getAuthedService()
-    await new BatchService(supabase).getEditable(batchId, userId)
+    const batch = await new BatchService(supabase).getEditable(batchId, userId)
+
+    // A connected vendor's price list is the source of truth for this
+    // batch's items (see addItemsToBatch above) — the customer can't
+    // silently override it, or their calculated_cost would drift from
+    // what the vendor actually charges.
+    if (batch.vendor_id) {
+      const connection = await new VendorConnectionRepository(supabase).findActiveByLaundryVendorId(batch.vendor_id)
+      if (connection) throw new Error('Price is set by the vendor and cannot be edited')
+    }
+
     const item = await service.updateUnitPrice(itemId, userId, batchId, unitPrice)
     updateTag(`batch-${batchId}`)
     return { success: true, data: item }
@@ -115,8 +127,16 @@ export async function setBatchItemReturned(
       // Item fully returned — if all items are now returned, anchor returned_at
       const batch = await batchService.getById(batchId)
       if (batch && batch.status === 'returned' && !batch.returned_at) {
-        await batchService.update(batchId, userId, { returned_at: new Date().toISOString() })
+        const updated = await batchService.update(batchId, userId, { returned_at: new Date().toISOString() })
         await new BatchStateMachineService(supabase).logEvent(batchId, userId, 'batch.all_returned')
+
+        if (updated.vendor_id) {
+          notifyConnectedVendor(createAdminClient(), updated.vendor_id, batchId, {
+            title: 'A batch was collected',
+            body: `"${updated.name}" — all items returned`,
+            tag: 'vendor-batch-collected',
+          }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+        }
       }
     }
 
@@ -133,12 +153,21 @@ export async function markAllBatchItemsReturned(batchId: string): Promise<Action
     const { supabase, service, userId } = await getAuthedService()
     await service.markAllReturned(batchId, userId)
     const now = new Date().toISOString()
-    await new BatchService(supabase).update(batchId, userId, { returned_at: now })
+    const batch = await new BatchService(supabase).update(batchId, userId, { returned_at: now })
     await new BatchStateMachineService(supabase).logEvent(batchId, userId, 'batch.all_returned', {
       returned_at: now,
     })
     updateTag(`batch-${batchId}`)
     updateTag('batches')
+
+    if (batch.vendor_id) {
+      notifyConnectedVendor(createAdminClient(), batch.vendor_id, batchId, {
+        title: 'A batch was collected',
+        body: `"${batch.name}" — all items returned`,
+        tag: 'vendor-batch-collected',
+      }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+    }
+
     return { success: true, data: undefined }
   } catch (e) {
     return handleActionError(e)
@@ -197,6 +226,18 @@ export async function reportBatchItemIssues(
     })
 
     updateTag(`batch-${batchId}`)
+
+    if (batch.vendor_id && (damagedQty > 0 || missingQty > 0)) {
+      const parts = []
+      if (damagedQty > 0) parts.push(`${damagedQty} damaged`)
+      if (missingQty > 0) parts.push(`${missingQty} missing`)
+      notifyConnectedVendor(createAdminClient(), batch.vendor_id, batchId, {
+        title: 'Damage reported',
+        body: `${parts.join(', ')} item(s) on "${batch.name}"`,
+        tag: 'vendor-damage-reported',
+      }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+    }
+
     return { success: true, data: item }
   } catch (e) {
     return handleActionError(e)
@@ -234,6 +275,15 @@ export async function collectBatch(
 
     updateTag(`batch-${batchId}`)
     updateTag('batches')
+
+    if (batch.vendor_id) {
+      const notification = shortfall > 0
+        ? { title: 'Items missing from a collected batch', body: `${collectedCount}/${totalExpected} items collected from "${batch.name}"`, tag: 'vendor-batch-collected' }
+        : { title: 'A batch was collected', body: `"${batch.name}" — ${collectedCount} item(s) collected`, tag: 'vendor-batch-collected' }
+      notifyConnectedVendor(createAdminClient(), batch.vendor_id, batchId, notification)
+        .catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', batchId } }))
+    }
+
     return { success: true, data: undefined }
   } catch (e) {
     return handleActionError(e)

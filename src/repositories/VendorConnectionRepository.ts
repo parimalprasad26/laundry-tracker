@@ -77,15 +77,18 @@ export class VendorConnectionRepository {
     return data
   }
 
-  // Re-request after a rejection — upsert onto the existing unique
-  // (user_id, vendor_account_id) row rather than a plain insert.
+  // Re-request after a rejection, cancellation, OR a prior disconnect —
+  // upsert onto the existing unique (user_id, vendor_account_id) row rather
+  // than a plain insert. Deliberately does NOT clear laundry_vendor_id: a
+  // reconnect after disconnect reuses the same private vendor row rather
+  // than creating a second one (see acceptServiceRole below).
   async reRequest(userId: string, vendorAccountId: string): Promise<VendorConnection> {
     const { data, error } = await this.supabase
       .from('vendor_connections')
       .update({ status: 'pending', requested_at: new Date().toISOString(), responded_at: null })
       .eq('user_id', userId)
       .eq('vendor_account_id', vendorAccountId)
-      .in('status', ['rejected', 'cancelled'])
+      .in('status', ['rejected', 'cancelled', 'disconnected'])
       .select()
       .single()
 
@@ -133,17 +136,37 @@ export class VendorConnectionRepository {
   // two steps leaves an orphaned laundry_vendors row, recoverable by retrying
   // the accept action (idempotency isn't attempted here; invite-only, low
   // volume, acceptable for Phase 1).
+  //
+  // Reconnecting after an earlier disconnect: the connection row already has
+  // a laundry_vendor_id from the first time it was accepted (disconnect
+  // never clears it) — reuse that same private vendor row instead of
+  // inserting a second one. A second insert would violate the (user_id,
+  // vendor_account_id) uniqueness constraint on laundry_vendors and would
+  // fragment the customer's batch history across two "different" entries
+  // for what's actually the same real vendor.
   async acceptServiceRole(connectionId: string, userId: string, vendorAccountId: string, businessName: string): Promise<VendorConnection> {
-    const { data: vendorRow, error: vendorErr } = await this.supabase
-      .from('laundry_vendors')
-      .insert({ user_id: userId, name: businessName, vendor_account_id: vendorAccountId, created_by: userId, updated_by: userId })
-      .select()
-      .single()
-    if (vendorErr) throw vendorErr
+    const { data: existingConnection, error: findErr } = await this.supabase
+      .from('vendor_connections')
+      .select('laundry_vendor_id')
+      .eq('id', connectionId)
+      .maybeSingle()
+    if (findErr) throw findErr
+
+    let laundryVendorId: string | null = existingConnection?.laundry_vendor_id ?? null
+
+    if (!laundryVendorId) {
+      const { data: vendorRow, error: vendorErr } = await this.supabase
+        .from('laundry_vendors')
+        .insert({ user_id: userId, name: businessName, vendor_account_id: vendorAccountId, created_by: userId, updated_by: userId })
+        .select()
+        .single()
+      if (vendorErr) throw vendorErr
+      laundryVendorId = vendorRow.id
+    }
 
     const { data, error } = await this.supabase
       .from('vendor_connections')
-      .update({ status: 'active', responded_at: new Date().toISOString(), laundry_vendor_id: vendorRow.id })
+      .update({ status: 'active', responded_at: new Date().toISOString(), laundry_vendor_id: laundryVendorId })
       .eq('id', connectionId)
       .eq('status', 'pending')
       .select()
