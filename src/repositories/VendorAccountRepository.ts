@@ -39,6 +39,20 @@ export class VendorAccountRepository {
     }))
   }
 
+  // Admin-only listing for /admin/vendors — no RLS-scoping needed since the
+  // only caller is AdminService.listVendorAccounts, which independently
+  // re-verifies ADMIN_USER_ID before ever reaching here.
+  async findAllServiceRole(): Promise<VendorAccount[]> {
+    const { data, error } = await this.supabase
+      .from('vendor_accounts')
+      .select('*')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data ?? []
+  }
+
   // Service-role only — vendor account creation is invite-only (see AdminService)
   // and onboarding_completed_at/business_name edits go through VendorAccountService
   // using the service-role client so a customer can never self-grant vendor status.
