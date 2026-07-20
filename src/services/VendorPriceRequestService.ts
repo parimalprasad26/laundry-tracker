@@ -7,6 +7,7 @@ import { BatchItemRepository } from '@/repositories/BatchItemRepository'
 import { vendorAccountPriceResolutionSchema } from '@/schemas/vendor-account.schema'
 import { notifyVendorAccount } from '@/lib/vendor-notify'
 import { sendPushToUser } from '@/lib/push-notify'
+import { checkRateLimit } from '@/lib/rate-limit'
 import * as Sentry from '@sentry/nextjs'
 import type { VendorPriceRequest } from '@/types'
 
@@ -66,13 +67,23 @@ export class VendorPriceRequestService {
 
     // Only notify on a genuinely new request — a second customer hitting the
     // same missing custom type while one's already pending would otherwise
-    // re-notify the vendor for something they've already seen.
-    notifyVendorAccount(this.adminClient, vendorAccountId, {
-      title: 'New price request',
-      body: `A customer needs a price for "${customType}"`,
-      tag: 'vendor-price-request',
-      url: '/vendor/requests',
-    }).catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', requestId: created.id } }))
+    // re-notify the vendor for something they've already seen. Rate-limited
+    // per vendor (not per requesting customer) — a single addItemsToBatch
+    // call can fan out one request per distinct missing custom type, so
+    // throttling the caller wouldn't cap the notification volume a vendor
+    // actually receives; the request itself is still created either way, so
+    // the item still correctly shows "awaiting vendor price" and the vendor
+    // still sees it on /vendor/requests even if the push gets throttled.
+    checkRateLimit(`price-request:${vendorAccountId}`)
+      .then(({ allowed }) => allowed
+        ? notifyVendorAccount(this.adminClient, vendorAccountId, {
+            title: 'New price request',
+            body: `A customer needs a price for "${customType}"`,
+            tag: 'vendor-price-request',
+            url: '/vendor/requests',
+          })
+        : undefined)
+      .catch(err => Sentry.captureException(err, { extra: { context: 'vendor-notify', requestId: created.id } }))
 
     return created.id
   }

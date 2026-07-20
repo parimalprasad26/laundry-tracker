@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { VendorAccountService } from '@/services/VendorAccountService'
 import { VendorConnectionService } from '@/services/VendorConnectionService'
 import { vendorSearchQuerySchema } from '@/schemas/vendor-account.schema'
+import { checkRateLimit } from '@/lib/rate-limit'
 import type { ActionResult, VendorSearchResult, VendorConnection } from '@/types'
 
 export type MyVendorConnection = VendorConnection & { vendor_business_name: string }
@@ -23,7 +24,11 @@ async function getAuthed() {
 
 export async function searchPlatformVendors(query: string): Promise<ActionResult<VendorSearchResult[]>> {
   try {
-    const { accountService } = await getAuthed()
+    const { accountService, userId } = await getAuthed()
+
+    const { allowed } = await checkRateLimit(`vendor-search:${userId}`)
+    if (!allowed) throw new Error('Too many searches — try again in a minute')
+
     const validated = vendorSearchQuerySchema.parse(query)
     const results = await accountService.search(validated)
     return { success: true, data: results }
@@ -45,6 +50,14 @@ export async function listMyVendorConnections(): Promise<ActionResult<MyVendorCo
 export async function requestVendorConnection(vendorAccountId: string): Promise<ActionResult<VendorConnection>> {
   try {
     const { connectionService, userId } = await getAuthed()
+
+    // Shares a rate-limit bucket with cancelVendorConnectionRequest below —
+    // each fires a push to a vendor, and a request/cancel/request loop
+    // would otherwise get double the effective throughput by splitting
+    // across two separately-limited actions.
+    const { allowed } = await checkRateLimit(`vendor-connect:${userId}`)
+    if (!allowed) throw new Error('Too many connection requests — try again in a minute')
+
     const connection = await connectionService.requestConnection(userId, vendorAccountId)
     updateTag('vendor-connections')
     return { success: true, data: connection }
@@ -56,6 +69,10 @@ export async function requestVendorConnection(vendorAccountId: string): Promise<
 export async function cancelVendorConnectionRequest(connectionId: string): Promise<ActionResult> {
   try {
     const { connectionService, userId } = await getAuthed()
+
+    const { allowed } = await checkRateLimit(`vendor-connect:${userId}`)
+    if (!allowed) throw new Error('Too many requests — try again in a minute')
+
     await connectionService.cancelRequest(connectionId, userId)
     updateTag('vendor-connections')
     return { success: true, data: undefined }
