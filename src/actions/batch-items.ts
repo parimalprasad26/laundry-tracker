@@ -218,12 +218,12 @@ export async function reportBatchItemIssues(
       throw new Error(`Damaged quantity (${damagedQty}) cannot exceed returned quantity (${batchItem.quantity_returned})`)
     }
 
-    // Mirror of the check in openSwapDispute — an open swap ("wrong item")
-    // report means this item isn't the customer's, so a damage/missing
-    // claim against it is contradictory.
+    // Mirror of the check in openSwapDispute — an open dispute of any kind
+    // (a swap "wrong item" report, or an issue the vendor already flagged)
+    // means a new damage/missing claim against this item is contradictory.
     if (damagedQty > 0 || missingQty > 0) {
-      const openSwap = await new DisputeService(supabase).findOpenSwapByItem(itemId, userId)
-      if (openSwap) throw new Error('This item has an open swap report — resolve it before reporting damage')
+      const existingOpen = await new DisputeService(supabase).findOpenByItem(itemId, userId)
+      if (existingOpen) throw new Error('This item already has an open issue — resolve it before reporting damage')
     }
 
     const item = await service.reportIssues(itemId, userId, damagedQty, missingQty, 'post_return')

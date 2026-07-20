@@ -7,11 +7,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { VendorAccountService } from '@/services/VendorAccountService'
 import { VendorConnectionService } from '@/services/VendorConnectionService'
 import { VendorPriceRequestService } from '@/services/VendorPriceRequestService'
+import { DisputeService } from '@/services/DisputeService'
 import type { VendorAccountProfileValues } from '@/schemas/vendor-account.schema'
 import type {
   ActionResult, VendorAccount, VendorAccountPrice, VendorConnection,
   VendorConnectedCustomer, VendorCustomerBatch, VendorCustomerBatchItem,
-  VendorPriceRequest, ItemType,
+  VendorPriceRequest, VendorDispute, ItemType,
 } from '@/types'
 
 // Every action here requires the caller to have a vendor_accounts row —
@@ -36,6 +37,7 @@ async function getAuthedVendor() {
     adminAccountService: new VendorAccountService(createAdminClient()),
     connectionService: new VendorConnectionService(supabase),
     priceRequestService: new VendorPriceRequestService(supabase),
+    disputeService: new DisputeService(supabase),
   }
 }
 
@@ -172,6 +174,16 @@ export async function resolvePriceRequest(requestId: string, unitPrice: number):
     updateTag('vendor-account')
     updateTag('batches')
     return { success: true, data: undefined }
+  } catch (e) {
+    return handleActionError(e)
+  }
+}
+
+export async function listVendorIssues(): Promise<ActionResult<VendorDispute[]>> {
+  try {
+    const { disputeService } = await getAuthedVendor()
+    const disputes = await disputeService.listForVendor()
+    return { success: true, data: disputes }
   } catch (e) {
     return handleActionError(e)
   }

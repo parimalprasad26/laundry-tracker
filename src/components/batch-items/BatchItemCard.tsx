@@ -19,7 +19,7 @@ import {
   CheckCircle2, Shirt, MoreVertical,
   Trash2, AlertTriangle, PackageX, FileWarning, ArrowLeftRight,
 } from 'lucide-react'
-import type { BatchItemWithClosetItem, BatchStatus, InspectionPolicy } from '@/types'
+import type { BatchItemWithClosetItem, BatchStatus, InspectionPolicy, BatchDispute } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatItemType } from '@/lib/item-type'
 import { useBatchActions } from '@/hooks/useBatchActions'
@@ -32,11 +32,11 @@ interface Props {
   batchStatus: BatchStatus
   batch: BatchWithStatus
   policy: Pick<InspectionPolicy, 'inspection_window_days' | 'dispute_window_days'>
-  swapReported?: boolean
+  openDispute?: BatchDispute | null
   isVendorConnected?: boolean
 }
 
-export function BatchItemCard({ item, batchStatus, batch, policy, swapReported = false, isVendorConnected = false }: Props) {
+export function BatchItemCard({ item, batchStatus, batch, policy, openDispute = null, isVendorConnected = false }: Props) {
   const router = useRouter()
   const [unitPrice, setUnitPrice] = useState<number | null>(item.unit_price)
   const [editingPrice, setEditingPrice] = useState(false)
@@ -61,6 +61,12 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
   const imageUrl = ci.primary_image_path ? publicImageUrl(SUPABASE_URL, ci.primary_image_path) : null
   const lineTotal = unitPrice != null ? unitPrice * item.quantity_sent : null
   const hasIssues = item.damaged_qty > 0 || item.missing_qty > 0
+  // Any open dispute on this item — customer- or vendor-raised, damage or
+  // swap — gates the report/dispute buttons below. Narrower than checking
+  // just swap disputes: a vendor can now raise a damage-type dispute too
+  // (Phase 3), which the old swap-only check never accounted for.
+  const hasOpenDispute = !!openDispute
+  const isOwnOpenSwap = openDispute?.dispute_type === 'swap' && openDispute.raised_by_role === 'customer'
 
   function handleRemove() {
     if (!confirm('Remove this item from the batch?')) return
@@ -233,8 +239,10 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
           )
         )}
 
-        {/* Damage button — only for collected items within inspection window */}
-        {batchStatus === 'returned' && actions.canReportDamage && !swapReported && item.quantity_returned > 0 && (
+        {/* Damage button — only for collected items within inspection window,
+            and only while there's no other open dispute on this item
+            (customer- or vendor-raised, any type) */}
+        {batchStatus === 'returned' && actions.canReportDamage && !hasOpenDispute && item.quantity_returned > 0 && (
           hasIssues ? (
             <button
               onClick={() => setIssuesOpen(true)}
@@ -272,14 +280,17 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
             and only while there's no active damage/missing report on this
             item (the two are mutually exclusive per item — a wrong item
             isn't the customer's, so a damage claim against it doesn't
-            make sense, and vice versa) */}
+            make sense, and vice versa). The "already reported" chip only
+            shows for the customer's own swap report — a vendor-raised
+            dispute of any type just hides this block entirely (see it in
+            the Issues panel below instead). */}
         {batchStatus === 'returned' && actions.canReportDamage && item.quantity_returned > 0 && !hasIssues && (
-          swapReported ? (
+          isOwnOpenSwap ? (
             <div className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 bg-blue-50 dark:bg-blue-500/10 ring-1 ring-blue-200 dark:ring-blue-500/25 text-xs font-medium text-blue-700 dark:text-blue-300">
               <ArrowLeftRight className="h-3.5 w-3.5" />
               Swap reported
             </div>
-          ) : (
+          ) : !hasOpenDispute ? (
             <button
               onClick={() => setSwapOpen(true)}
               className="w-full flex items-center justify-center gap-2 rounded-xl py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-dashed border-border"
@@ -287,13 +298,12 @@ export function BatchItemCard({ item, batchStatus, batch, policy, swapReported =
               <ArrowLeftRight className="h-3.5 w-3.5" />
               Received a different item?
             </button>
-          )
+          ) : null
         )}
 
         {/* Dispute button — visible on 'closed' status within dispute window.
-            Hidden once a swap is already reported on this item — see the
-            swap button above for why the two are mutually exclusive. */}
-        {batchStatus === 'closed' && actions.canOpenDispute && item.quantity_returned > 0 && !swapReported && (
+            Hidden once any dispute is already open on this item. */}
+        {batchStatus === 'closed' && actions.canOpenDispute && item.quantity_returned > 0 && !hasOpenDispute && (
           <button
             onClick={() => setDisputeOpen(true)}
             className="w-full flex items-center justify-center gap-2 rounded-xl py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-dashed border-border"

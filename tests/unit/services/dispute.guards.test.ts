@@ -16,6 +16,8 @@ function makeDispute(overrides: Partial<BatchDispute> = {}): BatchDispute {
     status: 'open',
     resolved_at: null,
     resolution: null,
+    raised_by_role: 'customer',
+    vendor_account_id: null,
     ...overrides,
   }
 }
@@ -24,39 +26,42 @@ function makeService() {
   return new DisputeService({} as ConstructorParameters<typeof DisputeService>[0])
 }
 
-describe('DisputeService.findOpenSwapByItem', () => {
-  // Backs the mutual-exclusion guard in openDispute/reportBatchItemIssues —
-  // a damage claim and a swap ("wrong item") claim can't both be open on
-  // the same batch_item, since a swap means the item isn't the customer's.
+describe('DisputeService.findOpenByItem', () => {
+  // Backs the mutual-exclusion guard in openDispute/openSwapDispute/
+  // reportBatchItemIssues/raiseAsVendor — at most one open issue per item,
+  // regardless of type or who raised it (customer or vendor).
   it('delegates to the repository with the given item and user', async () => {
     const service = makeService()
     const openSwap = makeDispute({ dispute_type: 'swap', wrong_item_description: 'not mine' })
     const repoFind = vi.fn().mockResolvedValue(openSwap)
     // @ts-expect-error — patching private repo for test
-    service.repo.findOpenSwapByItem = repoFind
+    service.repo.findOpenByItem = repoFind
 
-    const result = await service.findOpenSwapByItem('item-1', 'user-1')
+    const result = await service.findOpenByItem('item-1', 'user-1')
 
     expect(repoFind).toHaveBeenCalledWith('item-1', 'user-1')
     expect(result).toBe(openSwap)
   })
 
-  it('returns null when there is no open swap dispute on the item', async () => {
+  it('returns null when there is no open dispute on the item', async () => {
     const service = makeService()
     // @ts-expect-error — patching private repo for test
-    service.repo.findOpenSwapByItem = vi.fn().mockResolvedValue(null)
+    service.repo.findOpenByItem = vi.fn().mockResolvedValue(null)
 
-    await expect(service.findOpenSwapByItem('item-1', 'user-1')).resolves.toBeNull()
+    await expect(service.findOpenByItem('item-1', 'user-1')).resolves.toBeNull()
   })
 })
 
 describe('DisputeService.resolve', () => {
   it('logs the event against the resolved dispute\'s own batch_id, ignoring any other source', async () => {
     const service = makeService()
-    const resolved = makeDispute({ id: 'dispute-1', batch_id: 'real-batch', status: 'resolved' })
+    const existing = makeDispute({ id: 'dispute-1', batch_id: 'real-batch', user_id: 'user-1' })
+    const resolved = { ...existing, status: 'resolved' as const }
     const repoResolve = vi.fn().mockResolvedValue(resolved)
     const logEvent = vi.fn().mockResolvedValue(undefined)
     // @ts-expect-error — patching private members for test
+    service.repo.findById = vi.fn().mockResolvedValue(existing)
+    // @ts-expect-error
     service.repo.resolve = repoResolve
     // @ts-expect-error
     service.stateMachine.logEvent = logEvent
@@ -70,5 +75,26 @@ describe('DisputeService.resolve', () => {
       'batch.dispute_resolved',
       expect.objectContaining({ dispute_id: 'dispute-1', resolution: 'Refunded' }),
     )
+  })
+
+  it('throws when the dispute does not exist or belongs to a different user', async () => {
+    const service = makeService()
+    // @ts-expect-error
+    service.repo.findById = vi.fn().mockResolvedValue(makeDispute({ user_id: 'someone-else' }))
+    await expect(service.resolve('dispute-1', 'user-1', 'Refunded')).rejects.toThrow('Dispute not found')
+  })
+
+  it('throws when the customer tries to resolve a vendor-raised dispute', async () => {
+    const service = makeService()
+    // @ts-expect-error
+    service.repo.findById = vi.fn().mockResolvedValue(
+      makeDispute({ user_id: 'user-1', raised_by_role: 'vendor', vendor_account_id: 'vendor-account-1' })
+    )
+    const repoResolve = vi.fn()
+    // @ts-expect-error
+    service.repo.resolve = repoResolve
+
+    await expect(service.resolve('dispute-1', 'user-1', 'Refunded')).rejects.toThrow('only they can mark it resolved')
+    expect(repoResolve).not.toHaveBeenCalled()
   })
 })

@@ -98,6 +98,8 @@ export interface BatchEvent {
   created_at: string
 }
 
+export type DisputeRaisedByRole = 'customer' | 'vendor'
+
 export interface BatchDispute {
   id: string
   batch_id: string
@@ -109,6 +111,33 @@ export interface BatchDispute {
   dispute_type: DisputeType
   wrong_item_description: string | null
   status: DisputeStatus
+  resolved_at: string | null
+  resolution: string | null
+  raised_by_role: DisputeRaisedByRole
+  vendor_account_id: string | null
+}
+
+export interface BatchDisputeWithContext extends BatchDispute {
+  batch_item: BatchItemWithClosetItem
+  batch: { id: string; name: string }
+}
+
+export interface VendorDispute {
+  dispute_id: string
+  connection_id: string
+  batch_id: string
+  batch_name: string
+  batch_item_id: string
+  item_type: ItemType
+  custom_type: string | null
+  customer_name: string | null
+  dispute_type: DisputeType
+  damaged_qty: number
+  description: string | null
+  wrong_item_description: string | null
+  raised_by_role: DisputeRaisedByRole
+  status: DisputeStatus
+  reported_at: string
   resolved_at: string | null
   resolution: string | null
 }
@@ -175,6 +204,10 @@ export interface BatchItem {
 
 export interface BatchItemWithClosetItem extends BatchItem {
   closet_item: ClosetItem
+}
+
+export interface BatchItemWithIssueContext extends BatchItemWithClosetItem {
+  batch: { id: string; name: string }
 }
 
 // ── Monthly summary ───────────────────────────────────────────────────
@@ -305,6 +338,7 @@ export interface VendorCustomerBatchItem {
   pending_price_request_id: string | null
   item_type: ItemType
   custom_type: string | null
+  has_open_dispute: boolean
 }
 
 // ── Shared ────────────────────────────────────────────────────────────

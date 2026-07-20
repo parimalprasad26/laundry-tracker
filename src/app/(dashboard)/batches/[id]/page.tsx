@@ -60,8 +60,8 @@ export default async function BatchDetailPage({ params }: Props) {
     ? { inspection_window_days: rawPolicy.inspection_window_days, dispute_window_days: rawPolicy.dispute_window_days }
     : { inspection_window_days: 7, dispute_window_days: 30 }
 
-  const swapDisputeItemIds = new Set(
-    disputes.filter(d => d.dispute_type === 'swap' && d.status === 'open').map(d => d.batch_item_id)
+  const openDisputeByItemId = new Map(
+    disputes.filter(d => d.status === 'open').map(d => [d.batch_item_id, d])
   )
 
   const pricedItems = batchItems.filter(i => i.unit_price != null).length
@@ -179,7 +179,7 @@ export default async function BatchDetailPage({ params }: Props) {
                 batchStatus={batch.status}
                 batch={batch}
                 policy={policy}
-                swapReported={swapDisputeItemIds.has(item.id)}
+                openDispute={openDisputeByItemId.get(item.id) ?? null}
                 isVendorConnected={isVendorConnected}
               />
             ))}

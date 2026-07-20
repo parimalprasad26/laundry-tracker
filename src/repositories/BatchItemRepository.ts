@@ -1,8 +1,25 @@
 import { SupabaseClient } from '@supabase/supabase-js'
-import type { BatchItem, BatchItemWithClosetItem } from '@/types'
+import type { BatchItem, BatchItemWithClosetItem, BatchItemWithIssueContext } from '@/types'
 
 export class BatchItemRepository {
   constructor(private supabase: SupabaseClient) {}
+
+  // Cross-batch aggregation for the Issues tab — raw damage/missing flags
+  // (not batch_disputes rows) across every one of the user's batches.
+  // batch_items is directly user_id-scoped, so no batch-id-list indirection
+  // is needed (unlike BatchRepository.getMonthlySummary).
+  async findIssuesForUser(userId: string): Promise<BatchItemWithIssueContext[]> {
+    const { data, error } = await this.supabase
+      .from('batch_items')
+      .select('*, closet_item:closet_items(*), batch:laundry_batches(id, name)')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .or('damaged_qty.gt.0,missing_qty.gt.0')
+      .order('issue_reported_at', { ascending: false })
+
+    if (error) throw error
+    return (data ?? []) as unknown as BatchItemWithIssueContext[]
+  }
 
   async findByBatch(batchId: string): Promise<BatchItemWithClosetItem[]> {
     const { data, error } = await this.supabase
@@ -142,6 +159,21 @@ export class BatchItemRepository {
       .eq('user_id', userId)
 
     if (error) throw error
+  }
+
+  // No ownership scoping — the caller (DisputeService.raiseAsVendor) verifies
+  // the item belongs to a batch connected to the calling vendor before using
+  // this, since a vendor's identity has no direct relationship to
+  // batch_items.user_id the way a customer's does.
+  async findByIdServiceRole(id: string): Promise<BatchItem | null> {
+    const { data, error } = await this.supabase
+      .from('batch_items')
+      .select('*')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (error) throw error
+    return data
   }
 
   // ── Vendor price-request lifecycle — service-role only, since

@@ -112,11 +112,16 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
                     : <div className="w-full h-full bg-muted" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium truncate">{ci?.name ?? 'Unknown item'}</p>
                     <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400">
                       Dispute open
                     </span>
+                    {dispute.raised_by_role === 'vendor' && (
+                      <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        Flagged by vendor
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2 mt-1">
                     {dispute.damaged_qty > 0 && (
@@ -136,7 +141,13 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
                   </p>
                 </div>
               </div>
-              <ResolveDisputeButton disputeId={dispute.id} batchId={batchId} />
+              {/* Symmetric resolution — a vendor-raised issue is resolved
+                  from the vendor's own Issues tab, not here. */}
+              {dispute.raised_by_role === 'vendor' ? (
+                <p className="text-[11px] text-muted-foreground">Awaiting the vendor to resolve this</p>
+              ) : (
+                <ResolveDisputeButton disputeId={dispute.id} batchId={batchId} />
+              )}
             </div>
           )
         })}
@@ -157,11 +168,16 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
                     : <div className="w-full h-full bg-muted" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium truncate">{ci?.name ?? 'Unknown item'}</p>
                     <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400">
                       Wrong item
                     </span>
+                    {dispute.raised_by_role === 'vendor' && (
+                      <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        Flagged by vendor
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 mt-1">
                     <ArrowLeftRight className="h-3 w-3 text-blue-500 shrink-0" />
@@ -178,7 +194,11 @@ export function BatchIssuesPanel({ batchId, batchItems, disputes }: Props) {
                   </p>
                 </div>
               </div>
-              <ResolveDisputeButton disputeId={dispute.id} batchId={batchId} />
+              {dispute.raised_by_role === 'vendor' ? (
+                <p className="text-[11px] text-muted-foreground">Awaiting the vendor to resolve this</p>
+              ) : (
+                <ResolveDisputeButton disputeId={dispute.id} batchId={batchId} />
+              )}
             </div>
           )
         })}
