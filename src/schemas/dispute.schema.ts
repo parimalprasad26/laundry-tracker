@@ -12,3 +12,7 @@ export const swapClaimSchema = z.object({
 export const disputeResolutionSchema = z.object({
   resolution: z.string().min(1).max(1000),
 })
+
+export const disputeMessageSchema = z.object({
+  body: z.string().min(1).max(1000),
+})

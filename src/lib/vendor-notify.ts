@@ -24,7 +24,8 @@ export async function notifyConnectedVendor(
   admin: SupabaseClient,
   laundryVendorId: string,
   batchId: string,
-  notification: VendorNotification
+  notification: VendorNotification,
+  urlOverride?: string
 ): Promise<void> {
   const connectionRepo = new VendorConnectionRepository(admin)
   const connection = await connectionRepo.findActiveByLaundryVendorId(laundryVendorId)
@@ -35,7 +36,7 @@ export async function notifyConnectedVendor(
 
   await sendPushToUser(admin, vendorAccount.auth_user_id, {
     ...notification,
-    url: `/vendor/customers/${connection.id}/${batchId}`,
+    url: urlOverride ?? `/vendor/customers/${connection.id}/${batchId}`,
   })
 }
 

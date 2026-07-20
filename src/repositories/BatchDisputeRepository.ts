@@ -14,6 +14,28 @@ export class BatchDisputeRepository {
     return (data ?? []) as VendorDispute[]
   }
 
+  // Pre-send context for DisputeChatService.sendAsVendor — a vendor's own
+  // session has no RLS access to batch_disputes at all, so this is the only
+  // way it can check "is this dispute open / still connected" before
+  // attempting a message insert (migration 0041's vendor_dispute_context()).
+  async getVendorContext(disputeId: string): Promise<{
+    disputeStatus: DisputeStatus
+    connectionActive: boolean
+    vendorAccountId: string
+  } | null> {
+    const { data, error } = await this.supabase
+      .rpc('vendor_dispute_context', { p_dispute_id: disputeId })
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return null
+    const row = data as { dispute_status: DisputeStatus; connection_active: boolean; vendor_account_id: string }
+    return {
+      disputeStatus: row.dispute_status,
+      connectionActive: row.connection_active,
+      vendorAccountId: row.vendor_account_id,
+    }
+  }
+
   // Disconnect must clear any open vendor-raised dispute, or it's stuck
   // forever — the customer sees "awaiting the vendor" with no way to
   // resolve it (only the raising vendor can, per the symmetric-resolution
@@ -66,6 +88,20 @@ export class BatchDisputeRepository {
       .maybeSingle()
     if (error) throw error
     return data as BatchDispute | null
+  }
+
+  // Single-dispute fetch for the customer's chat view page — ownership
+  // scoped, embeds enough item/batch context to render the page header
+  // without a second query.
+  async findByIdForUser(id: string, userId: string): Promise<BatchDisputeWithContext | null> {
+    const { data, error } = await this.supabase
+      .from('batch_disputes')
+      .select('*, batch_item:batch_items(*, closet_item:closet_items(*)), batch:laundry_batches(id, name)')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (error) throw error
+    return data as unknown as BatchDisputeWithContext | null
   }
 
   async findByBatch(batchId: string, userId: string): Promise<BatchDispute[]> {

@@ -172,6 +172,11 @@ export class DisputeService {
     return this.repo.findAllForUser(userId)
   }
 
+  // Single-dispute fetch for the customer's chat view page.
+  async findByIdForUser(disputeId: string, userId: string): Promise<BatchDisputeWithContext | null> {
+    return this.repo.findByIdForUser(disputeId, userId)
+  }
+
   // Cross-connection aggregation for the vendor's Issues tab — via the
   // caller's own session (not admin), same reasoning as
   // VendorConnectionService's read methods.

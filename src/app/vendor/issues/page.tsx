@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
-import { listVendorIssues } from '@/actions/vendor-portal'
+import { listVendorIssues, listVendorDisputeUnreadCounts } from '@/actions/vendor-portal'
 import { ResolveVendorIssueButton } from '@/components/vendor-portal/ResolveVendorIssueButton'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +13,11 @@ export const metadata = { title: 'Issues' }
 export default async function VendorIssuesPage() {
   const result = await listVendorIssues()
   const disputes = result.success ? result.data : []
+
+  const unreadResult = disputes.length
+    ? await listVendorDisputeUnreadCounts(disputes.map(d => d.dispute_id))
+    : null
+  const unreadByDispute = unreadResult?.success ? unreadResult.data : {}
 
   const open = disputes.filter(d => d.status === 'open')
   const closed = disputes.filter(d => d.status !== 'open')
@@ -42,7 +47,7 @@ export default async function VendorIssuesPage() {
               <Card key={dispute.dispute_id} className={cn(!isOpen && 'opacity-60')}>
                 <CardContent className="py-3 space-y-2">
                   <Link
-                    href={`/vendor/customers/${dispute.connection_id}/${dispute.batch_id}`}
+                    href={`/vendor/issues/${dispute.dispute_id}`}
                     className="flex items-start justify-between gap-3"
                   >
                     <div className="space-y-1 min-w-0">
@@ -60,6 +65,11 @@ export default async function VendorIssuesPage() {
                         {!isOpen && (
                           <span className="flex items-center gap-1 text-[10px] text-muted-foreground capitalize">
                             <CheckCircle2 className="h-2.5 w-2.5" />{dispute.status}
+                          </span>
+                        )}
+                        {(unreadByDispute[dispute.dispute_id] ?? 0) > 0 && (
+                          <span className="shrink-0 flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
+                            <MessageSquare className="h-2.5 w-2.5" />{unreadByDispute[dispute.dispute_id]}
                           </span>
                         )}
                       </div>
