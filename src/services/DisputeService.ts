@@ -86,6 +86,10 @@ export class DisputeService {
     return dispute
   }
 
+  async findOpenSwapByItem(batchItemId: string, userId: string): Promise<BatchDispute | null> {
+    return this.repo.findOpenSwapByItem(batchItemId, userId)
+  }
+
   async getByBatch(batchId: string, userId: string): Promise<BatchDispute[]> {
     return this.repo.findByBatch(batchId, userId)
   }

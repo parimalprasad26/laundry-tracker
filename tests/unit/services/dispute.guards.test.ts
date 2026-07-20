@@ -24,6 +24,32 @@ function makeService() {
   return new DisputeService({} as ConstructorParameters<typeof DisputeService>[0])
 }
 
+describe('DisputeService.findOpenSwapByItem', () => {
+  // Backs the mutual-exclusion guard in openDispute/reportBatchItemIssues —
+  // a damage claim and a swap ("wrong item") claim can't both be open on
+  // the same batch_item, since a swap means the item isn't the customer's.
+  it('delegates to the repository with the given item and user', async () => {
+    const service = makeService()
+    const openSwap = makeDispute({ dispute_type: 'swap', wrong_item_description: 'not mine' })
+    const repoFind = vi.fn().mockResolvedValue(openSwap)
+    // @ts-expect-error — patching private repo for test
+    service.repo.findOpenSwapByItem = repoFind
+
+    const result = await service.findOpenSwapByItem('item-1', 'user-1')
+
+    expect(repoFind).toHaveBeenCalledWith('item-1', 'user-1')
+    expect(result).toBe(openSwap)
+  })
+
+  it('returns null when there is no open swap dispute on the item', async () => {
+    const service = makeService()
+    // @ts-expect-error — patching private repo for test
+    service.repo.findOpenSwapByItem = vi.fn().mockResolvedValue(null)
+
+    await expect(service.findOpenSwapByItem('item-1', 'user-1')).resolves.toBeNull()
+  })
+})
+
 describe('DisputeService.resolve', () => {
   it('logs the event against the resolved dispute\'s own batch_id, ignoring any other source', async () => {
     const service = makeService()

@@ -45,7 +45,15 @@ export async function openDispute(
       throw new Error(`Damaged quantity (${damagedQty}) cannot exceed returned quantity (${batchItem.quantity_returned})`)
     }
 
-    const dispute = await new DisputeService(supabase).open(batchId, itemId, userId, {
+    const disputeService = new DisputeService(supabase)
+
+    // An open swap ("wrong item") report means this item isn't even the
+    // customer's — a damage claim against it is contradictory and would
+    // otherwise sit as a second, conflicting open issue on the same item.
+    const openSwap = await disputeService.findOpenSwapByItem(itemId, userId)
+    if (openSwap) throw new Error('This item already has an open swap report — resolve it before opening a damage dispute')
+
+    const dispute = await disputeService.open(batchId, itemId, userId, {
       damaged_qty: damagedQty,
       description: description ?? null,
     })
@@ -79,6 +87,22 @@ export async function openSwapDispute(
 
     const reportability = await new InspectionPolicyService(supabase).isDamageReportable(batch, userId)
     if (!reportability.allowed) throw new Error(reportability.reason)
+
+    const { data: batchItem } = await supabase
+      .from('batch_items')
+      .select('quantity_returned, damaged_qty, missing_qty')
+      .eq('id', itemId)
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (!batchItem) throw new Error('Item not found')
+    if (batchItem.quantity_returned === 0) throw new Error('Cannot report a swap on an item that was not collected')
+
+    // Mirror of the check in openDispute above — a damage report already on
+    // this item means it's actually the customer's item, contradicting a
+    // "this isn't mine" swap claim.
+    if (batchItem.damaged_qty > 0 || batchItem.missing_qty > 0) {
+      throw new Error('This item already has a damage report — clear it before reporting a swap')
+    }
 
     const dispute = await new DisputeService(supabase).openSwap(batchId, itemId, userId, {
       wrong_item_description: wrongItemDescription,
