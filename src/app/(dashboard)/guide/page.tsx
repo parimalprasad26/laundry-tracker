@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { GuideToc } from '@/components/guide/GuideToc'
 import { BatchStatusBadge } from '@/components/batches/BatchStatusBadge'
 import { Badge } from '@/components/ui/badge'
@@ -6,23 +7,50 @@ import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, ListOrdered, Shirt, CalendarDays, History, AlertTriangle, BarChart3, Store, Settings2,
-  Send, PackageCheck, ClipboardCheck, RotateCcw, CheckCircle2,
+  Send, PackageCheck, ClipboardCheck, RotateCcw, CheckCircle2, ArrowRight,
   Search, Link2, Check, X, Tag, ListChecks, Users, Bell, type LucideIcon,
 } from 'lucide-react'
 
 export const metadata = { title: 'Guide' }
 
-function SectionHead({ icon: Icon, title, where }: { icon: LucideIcon; title: string; where: string }) {
+function SectionHead({ icon: Icon, title, where, href }: { icon: LucideIcon; title: string; where: string; href: string }) {
   return (
-    <div className="flex items-start gap-3 mb-2">
-      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-        <Icon className="h-4 w-4" />
+    <div className="flex items-start justify-between gap-3 mb-2">
+      <div className="flex items-start gap-3">
+        <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+          <p className="font-mono text-[0.65rem] uppercase tracking-wide text-muted-foreground mt-0.5">{where}</p>
+        </div>
       </div>
-      <div>
-        <h2 className="text-lg font-bold tracking-tight">{title}</h2>
-        <p className="font-mono text-[0.65rem] uppercase tracking-wide text-muted-foreground mt-0.5">{where}</p>
-      </div>
+      <Link href={href} className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline mt-1.5">
+        Open<ArrowRight className="h-3 w-3" />
+      </Link>
     </div>
+  )
+}
+
+function FlowCard({ title, steps }: { title: string; steps: { label: string; href: string }[] }) {
+  return (
+    <Card>
+      <CardContent className="pt-4">
+        <p className="text-sm font-semibold leading-tight mb-3">{title}</p>
+        <ol className="space-y-2">
+          {steps.map((step, i) => (
+            <li key={step.href + step.label}>
+              <Link href={step.href} className="group flex items-center gap-2">
+                <span className="h-4 w-4 rounded-full bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground flex items-center justify-center text-[0.6rem] font-bold shrink-0 transition-colors">
+                  {i + 1}
+                </span>
+                <span className="text-xs text-muted-foreground group-hover:text-primary group-hover:underline">{step.label}</span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -71,11 +99,11 @@ export default function GuidePage() {
   return (
     <div className="max-w-6xl">
       <div className="mb-8 max-w-2xl">
-        <p className="font-mono text-xs uppercase tracking-wide text-primary">Start here</p>
-        <h1 className="text-2xl font-bold tracking-tight mt-1">How Laundry Tracker works</h1>
+        <p className="font-mono text-xs uppercase tracking-wide text-primary">What you can do</p>
+        <h1 className="text-2xl font-bold tracking-tight mt-1">Everything you can do in Laundry Tracker</h1>
         <p className="text-sm text-muted-foreground mt-2">
-          Every screen below is drawn to match the real app — same colors, same buttons, same icons.
-          Use the menu to jump straight to what you need.
+          Pick a flow below to jump straight in, or browse every feature — each one links to the real screen,
+          so you&apos;re never just looking at a picture.
         </p>
       </div>
 
@@ -84,31 +112,31 @@ export default function GuidePage() {
 
         <div className="flex-1 min-w-0 max-w-2xl space-y-14">
 
-          {/* Quickstart */}
+          {/* Core flows */}
           <section>
-            <h2 className="text-base font-bold mb-3">Your first three steps</h2>
+            <h2 className="text-base font-bold mb-3">Core flows</h2>
             <div className="grid sm:grid-cols-3 gap-3">
-              {[
-                ['Add a few clothes to Closet', 'Optional — saves retyping items every trip.'],
-                ['Start a Batch', "Pick what you're sending this time."],
-                ['Send it, then track it', "It's followed until it's back and paid for."],
-              ].map(([title, desc], i) => (
-                <Card key={title}>
-                  <CardContent className="flex gap-2.5 pt-4">
-                    <span className="font-mono text-xs text-primary font-bold shrink-0">0{i + 1}</span>
-                    <div>
-                      <p className="text-sm font-semibold leading-tight">{title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              <FlowCard title="Send your first batch" steps={[
+                { label: 'Add items to Closet (optional)', href: '/closet' },
+                { label: 'Create a batch', href: '/batches/new' },
+                { label: 'Send it & track it', href: '/batches' },
+              ]} />
+              <FlowCard title="Connect with a laundry business" steps={[
+                { label: 'Search the platform', href: '/vendors/find' },
+                { label: 'Check your requests', href: '/vendors/connections' },
+                { label: 'Prices fill in automatically', href: '/vendors' },
+              ]} />
+              <FlowCard title="Handle a damaged or missing item" steps={[
+                { label: 'Mark items returned', href: '/batches' },
+                { label: 'Flag the issue', href: '/batches' },
+                { label: 'Track & resolve it', href: '/issues' },
+              ]} />
             </div>
           </section>
 
           {/* Dashboard */}
           <section id="dashboard">
-            <SectionHead icon={LayoutDashboard} title="Dashboard" where="Sidebar → Dashboard" />
+            <SectionHead icon={LayoutDashboard} title="Dashboard" where="Sidebar → Dashboard" href="/dashboard" />
             <p className="text-sm text-muted-foreground mb-4">
               Your home screen. One glance tells you how much you&apos;ve spent against your budget, what&apos;s still
               out at the laundry, and anything overdue.
@@ -141,7 +169,7 @@ export default function GuidePage() {
 
           {/* Batches */}
           <section id="batches">
-            <SectionHead icon={ListOrdered} title="Batches" where="Sidebar → Batches" />
+            <SectionHead icon={ListOrdered} title="Batches" where="Sidebar → Batches" href="/batches" />
             <p className="text-sm text-muted-foreground mb-4">
               A <strong className="text-foreground">batch</strong> is one drop-off — everything you hand over together
               in a single trip. Every batch moves through four stages, in order, and the app shows different buttons at each one.
@@ -248,7 +276,7 @@ export default function GuidePage() {
 
           {/* Closet */}
           <section id="closet">
-            <SectionHead icon={Shirt} title="Closet" where="Sidebar → Closet" />
+            <SectionHead icon={Shirt} title="Closet" where="Sidebar → Closet" href="/closet" />
             <p className="text-sm text-muted-foreground mb-4">
               Your wardrobe, digitized. Add each item once — with a photo if you like — and pick it from a grid every
               time you build a batch, instead of typing it out again.
@@ -275,7 +303,7 @@ export default function GuidePage() {
 
           {/* Calendar */}
           <section id="calendar">
-            <SectionHead icon={CalendarDays} title="Calendar" where="Sidebar → Calendar" />
+            <SectionHead icon={CalendarDays} title="Calendar" where="Sidebar → Calendar" href="/calendar" />
             <p className="text-sm text-muted-foreground mb-4">
               Your batches laid out by date — when each one went out, when it&apos;s due back.
             </p>
@@ -294,7 +322,7 @@ export default function GuidePage() {
 
           {/* History */}
           <section id="history">
-            <SectionHead icon={History} title="History" where="Sidebar → History" />
+            <SectionHead icon={History} title="History" where="Sidebar → History" href="/history" />
             <p className="text-sm text-muted-foreground mb-4">Every batch you&apos;ve closed out, in one scrollable list, for whenever you want to look back.</p>
             <Card>
               <CardContent className="pt-4 divide-y divide-border">
@@ -312,7 +340,7 @@ export default function GuidePage() {
 
           {/* Issues */}
           <section id="issues">
-            <SectionHead icon={AlertTriangle} title="Issues" where="Sidebar → Issues" />
+            <SectionHead icon={AlertTriangle} title="Issues" where="Sidebar → Issues" href="/issues" />
             <p className="text-sm text-muted-foreground mb-4">
               Anything gone wrong — damaged, missing, or not what you sent — gathered here from every batch instead of
               scattered across each one. If the vendor is on the platform, chat with them directly to sort it out.
@@ -348,7 +376,7 @@ export default function GuidePage() {
 
           {/* Summary */}
           <section id="summary">
-            <SectionHead icon={BarChart3} title="Summary" where="Sidebar → Summary" />
+            <SectionHead icon={BarChart3} title="Summary" where="Sidebar → Summary" href="/summary" />
             <p className="text-sm text-muted-foreground mb-4">Your spending, summarized month by month — total spend, breakdown, and how it tracks against your budget.</p>
             <Card className="max-w-md">
               <CardContent className="pt-4">
@@ -366,7 +394,7 @@ export default function GuidePage() {
 
           {/* Vendors */}
           <section id="vendors">
-            <SectionHead icon={Store} title="Vendors" where="Sidebar → Vendors" />
+            <SectionHead icon={Store} title="Vendors" where="Sidebar → Vendors" href="/vendors" />
             <p className="text-sm text-muted-foreground mb-4">Two kinds of vendor live here, and they work differently.</p>
             <div className="grid sm:grid-cols-2 gap-4">
               <Card>
@@ -412,7 +440,7 @@ export default function GuidePage() {
 
           {/* Settings */}
           <section id="settings">
-            <SectionHead icon={Settings2} title="Settings" where="Sidebar → Settings" />
+            <SectionHead icon={Settings2} title="Settings" where="Sidebar → Settings" href="/settings" />
             <p className="text-sm text-muted-foreground mb-4">Set your budget, reminder timing, and how long you have to inspect items before an issue can no longer be raised.</p>
             <Card className="max-w-md">
               <CardContent className="pt-4 divide-y divide-border">
@@ -454,6 +482,17 @@ export default function GuidePage() {
               portal at a different set of screens. This is what that portal looks like.
             </p>
 
+            <div className="grid sm:grid-cols-2 gap-3 mb-8 max-w-lg">
+              <FlowCard title="Get found by customers" steps={[
+                { label: 'Set your rate card', href: '/vendor/prices' },
+                { label: 'Go live in customer search', href: '/vendor/prices' },
+              ]} />
+              <FlowCard title="Resolve a flagged issue" steps={[
+                { label: 'Open Issues', href: '/vendor/issues' },
+                { label: 'Chat it through', href: '/vendor/issues' },
+              ]} />
+            </div>
+
             <Card className="max-w-lg mb-8">
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -468,7 +507,7 @@ export default function GuidePage() {
 
             <div className="space-y-10">
               <section>
-                <SectionHead icon={LayoutDashboard} title="Vendor dashboard" where="Vendor portal → Dashboard" />
+                <SectionHead icon={LayoutDashboard} title="Vendor dashboard" where="Vendor portal → Dashboard" href="/vendor/dashboard" />
                 <p className="text-sm text-muted-foreground mb-4">Your connected customers, and any pending connection requests waiting on you.</p>
                 <Card className="max-w-sm">
                   <CardContent className="pt-4 space-y-2.5">
@@ -482,7 +521,7 @@ export default function GuidePage() {
               </section>
 
               <section>
-                <SectionHead icon={Tag} title="Rate card" where="Vendor portal → Rate card" />
+                <SectionHead icon={Tag} title="Rate card" where="Vendor portal → Rate card" href="/vendor/prices" />
                 <p className="text-sm text-muted-foreground mb-4">Your own price list. Set it once and it applies to every connected customer automatically — you need at least one saved price to appear in customer search.</p>
                 <Card className="max-w-sm">
                   <CardContent className="pt-4 space-y-2.5 divide-y divide-border">
@@ -499,17 +538,17 @@ export default function GuidePage() {
               </section>
 
               <section>
-                <SectionHead icon={ListChecks} title="Price requests" where="Vendor portal → Price requests" />
+                <SectionHead icon={ListChecks} title="Price requests" where="Vendor portal → Price requests" href="/vendor/requests" />
                 <p className="text-sm text-muted-foreground">When a customer sends a custom item type you&apos;ve never priced, it lands here — set a price and it&apos;s added to your rate card.</p>
               </section>
 
               <section>
-                <SectionHead icon={AlertTriangle} title="Issues & chat" where="Vendor portal → Issues" />
+                <SectionHead icon={AlertTriangle} title="Issues & chat" where="Vendor portal → Issues" href="/vendor/issues" />
                 <p className="text-sm text-muted-foreground">See what a customer has flagged, or raise your own if you spot a problem first. Chat directly with the customer on any open issue.</p>
               </section>
 
               <section>
-                <SectionHead icon={Users} title="Customers" where="Vendor dashboard → Connected customers" />
+                <SectionHead icon={Users} title="Customers" where="Vendor dashboard → Connected customers" href="/vendor/dashboard" />
                 <p className="text-sm text-muted-foreground">Your connected customer list, with each one&apos;s batch history — reached from a link on your dashboard.</p>
               </section>
             </div>
